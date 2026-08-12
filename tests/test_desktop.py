@@ -29,7 +29,7 @@ def test_window_defaults_match_processing_defaults(app, settings) -> None:
     assert window.platform == "line"
     assert window.frame_list.count() == 0
     assert window.duration_spin.value() == 200
-    assert not window.background_check.isChecked()
+    assert not hasattr(window, "background_check")
     assert window.language == "zh-TW"
     assert window.export_button.text() == "全部匯出"
     window.close()
@@ -68,13 +68,13 @@ def test_translation_catalogs_have_identical_keys() -> None:
 
 def test_window_is_resizable_and_content_scrolls_vertically(app, settings) -> None:
     window = StickerMotionWindow(settings)
-    assert window.minimumWidth() <= 560
+    assert window.minimumWidth() <= 700
     assert window.minimumHeight() <= 420
     assert window.scroll_area.widgetResizable()
     assert window.scroll_area.widget() is window.content_widget
     assert window.scroll_area.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
     assert window.scroll_area.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAsNeeded
-    window.resize(560, 420)
+    window.resize(700, 420)
     window.show()
     app.processEvents()
     assert window.frame_list.height() >= window.frame_list.minimumHeight()

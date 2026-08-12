@@ -25,7 +25,7 @@ The processing pipeline supports 4, 6, or 8 frames and branches only at export:
 ### v1.1
 
 - Animation Job Queue for preparing multiple independent animations
-- Per-job frames, platform, duration, background processing, filename, status, and text settings
+- Per-job frames, platform, duration, filename, status, and text settings
 - Add, remove, duplicate, clear, and reorder jobs
 - Sequential Export All with progress; mixed LINE APNG and WeChat GIF queues are supported
 - Existing files are never overwritten: `name-2`, `name-3`, and later numeric suffixes are used
@@ -41,7 +41,7 @@ The processing pipeline supports 4, 6, or 8 frames and branches only at export:
 - Natural filename sorting and manual playback-order management
 - Move Up, Move Down, Remove selected, and Clear all controls
 - Default 200 ms duration per frame, configurable in the GUI and CLI
-- Optional solid-background removal based on each frame's corner color
+- Optional solid-background removal remains available through the source CLI and processing API for compatibility; it is not shown in the v1.1 GUI
 - LINE APNG and WeChat GIF export
 - Traditional Chinese, Simplified Chinese, and English GUI
 - Persisted language preference and live language switching
