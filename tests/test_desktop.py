@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 pytest.importorskip("PySide6")
@@ -86,18 +88,18 @@ def test_frames_are_naturally_sorted_and_reordered(app, settings, tmp_path) -> N
     window = StickerMotionWindow(settings)
     paths = [str(tmp_path / name) for name in ("frame10.png", "frame2.png", "frame1.png", "frame3.png")]
     window.add_frame_paths(paths)
-    assert [path.rsplit("/", 1)[-1] for path in window.frame_paths()] == [
+    assert [Path(path).name for path in window.frame_paths()] == [
         "frame1.png", "frame2.png", "frame3.png", "frame10.png"
     ]
     assert window.frame_count_label.text() == "影格數：4"
     window.frame_list.setCurrentRow(2)
     window._move_up()
-    assert [path.rsplit("/", 1)[-1] for path in window.frame_paths()] == [
+    assert [Path(path).name for path in window.frame_paths()] == [
         "frame1.png", "frame3.png", "frame2.png", "frame10.png"
     ]
     assert window.frame_count_label.text() == "影格數：4"
     window.add_frame_paths([str(tmp_path / "frame12.png"), str(tmp_path / "frame11.png")])
-    assert [path.rsplit("/", 1)[-1] for path in window.frame_paths()] == [
+    assert [Path(path).name for path in window.frame_paths()] == [
         "frame1.png", "frame3.png", "frame2.png", "frame10.png", "frame11.png", "frame12.png"
     ]
     window._remove_selected()

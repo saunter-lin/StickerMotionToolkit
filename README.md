@@ -27,7 +27,7 @@ The processing pipeline supports 4, 6, or 8 frames and branches only at export:
 - Traditional Chinese, Simplified Chinese, and English GUI
 - Persisted language preference and live language switching
 - Resizable, vertically scrollable desktop interface
-- Standalone macOS Apple Silicon arm64 application build
+- Standalone macOS Apple Silicon arm64 and Windows 10/11 x64 builds
 
 ## Setup
 
@@ -95,6 +95,23 @@ For release verification, the frozen executable supports an internal export diag
 "dist/Sticker Motion Toolkit.app/Contents/MacOS/Sticker Motion Toolkit" --self-test /tmp/sticker-motion-smoke
 ```
 
+## Windows 10/11 x64
+
+Download `StickerMotionToolkit-v1.0.0-Windows-x64.zip` from the official [saunter-lin/StickerMotionToolkit v1.0.0 release](https://github.com/saunter-lin/StickerMotionToolkit/releases/tag/v1.0.0).
+
+1. Fully extract the ZIP before launching. Do not run the executable from inside the ZIP.
+2. Keep the complete extracted folder together; this is an onedir distribution and the `_internal` folder is required.
+3. Launch `Sticker Motion Toolkit.exe`.
+
+Python and Python packages are not required. This V1 Windows build is unsigned, so Windows SmartScreen may display a warning. Verify that the ZIP came from the official GitHub release before opening it.
+
+The native Windows build uses `StickerMotionToolkit-Windows.spec`. Build it on Windows x64 with:
+
+```powershell
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.venv\Scripts\pyinstaller.exe --clean --noconfirm StickerMotionToolkit-Windows.spec
+```
+
 ## Architecture
 
 `app/main.py` provides the source CLI, `app/gui_main.py` is the packaged GUI-first entry point, and `app/workers/pipeline.py` is the application orchestration boundary shared by both interfaces.
@@ -117,4 +134,4 @@ Image objects are copied into this project-owned model. There is no import from 
 - Text overlays, animated preview, background composition, frame-range grouping, and platform-specific validation/compression are future extension points, not V1 features.
 - GIF uses palette transparency and therefore cannot preserve partial alpha. APNG preserves full RGBA.
 - Output files are correctly encoded, but submission acceptance still depends on current platform upload rules; the toolkit does not yet enforce those rules.
-- The V1 packaged application targets macOS Apple Silicon arm64 only; no Windows binary has been built or verified.
+- Official V1 packaged builds target macOS Apple Silicon arm64 and Windows 10/11 x64. Other platforms have not been built or verified.
