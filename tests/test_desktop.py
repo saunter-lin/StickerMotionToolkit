@@ -158,3 +158,46 @@ def test_language_switch_preserves_queue_state(app, settings) -> None:
     assert window.queue_label.text() == "Animation Job Queue"
     assert window.export_button.text() == "Export All"
     window.close()
+
+
+def test_every_job_editor_control_has_a_translated_visible_label(app, settings) -> None:
+    window = StickerMotionWindow(settings)
+    expected = {
+        "zh-TW": ("介面語言", "影格間隔", "文字方向", "旋轉角度", "預覽"),
+        "zh-CN": ("界面语言", "帧间隔", "文字方向", "旋转角度", "预览"),
+        "en": ("Interface Language", "Frame Duration", "Text Direction", "Rotation Angle", "Preview"),
+    }
+    for language, labels in expected.items():
+        window.language_combo.setCurrentIndex(window.language_combo.findData(language))
+        fields = (
+            window.language_combo, window.job_name_edit, window.platform_combo,
+            window.duration_spin, window.output_filename_edit, window.text_check,
+            window.text_edit, window.font_combo, window.font_size_spin,
+            window.text_color_button, window.stroke_color_button,
+            window.stroke_width_spin, window.text_direction_combo,
+            window.rotation_spin, window.vertical_combo, window.horizontal_combo,
+            window.x_offset_spin, window.y_offset_spin, window.preview_label,
+        )
+        visible = {window.form.labelForField(field).text() for field in fields}
+        assert set(labels) <= visible
+        assert "" not in visible
+    window.close()
+
+
+def test_language_switch_preserves_new_text_controls(app, settings) -> None:
+    window = StickerMotionWindow(settings)
+    window.text_check.setChecked(True)
+    window.text_edit.setText("你好 Test")
+    window.text_direction_combo.setCurrentIndex(window.text_direction_combo.findData("vertical"))
+    window.rotation_spin.setValue(-37)
+    window.x_offset_spin.setValue(12)
+    window.y_offset_spin.setValue(-9)
+    selected = window.job_list.currentRow()
+    window.language_combo.setCurrentIndex(window.language_combo.findData("en"))
+    job = window.current_job()
+    assert window.job_list.currentRow() == selected
+    assert job.text_overlay.text_direction == "vertical"
+    assert job.text_overlay.rotation_angle == -37
+    assert (job.text_overlay.x_offset, job.text_overlay.y_offset) == (12, -9)
+    assert window.text_direction_combo.currentText() == "Vertical"
+    window.close()

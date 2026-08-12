@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.ui.i18n import DEFAULT_LANGUAGE, LANGUAGES, localized_error, translate
+from app.windows_identity import configure_windows_app_identity
 from sticker_motion.batch import export_jobs, prepare_job_frames
 from sticker_motion.jobs import AnimationJob, AnimationQueue
 from sticker_motion.text_overlay import available_font_families
@@ -90,6 +91,8 @@ class StickerMotionWindow(QMainWindow):
         self.font_size_spin = QSpinBox(); self.font_size_spin.setRange(6, 300); self.font_size_spin.setValue(36)
         self.text_color_button, self.stroke_color_button = QPushButton(), QPushButton()
         self.stroke_width_spin = QSpinBox(); self.stroke_width_spin.setRange(0, 20); self.stroke_width_spin.setValue(2)
+        self.text_direction_combo = QComboBox(); [self.text_direction_combo.addItem("", value) for value in ("horizontal", "vertical")]
+        self.rotation_spin = QSpinBox(); self.rotation_spin.setRange(-180, 180); self.rotation_spin.setSuffix("°")
         self.vertical_combo = QComboBox(); [self.vertical_combo.addItem("", value) for value in ("top", "center", "bottom")]; self.vertical_combo.setCurrentIndex(2)
         self.horizontal_combo = QComboBox(); [self.horizontal_combo.addItem("", value) for value in ("left", "center", "right")]; self.horizontal_combo.setCurrentIndex(1)
         self.x_offset_spin, self.y_offset_spin = QSpinBox(), QSpinBox()
@@ -97,10 +100,13 @@ class StickerMotionWindow(QMainWindow):
         self.preview_label = QLabel(); self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter); self.preview_label.setMinimumSize(260, 180); self.preview_label.setStyleSheet("background:#222; color:#aaa;")
 
         self.form = QFormLayout()
-        for widget in (self.language_combo, self.job_name_edit, self.platform_combo, self.duration_spin, self.output_filename_edit, self.text_check, self.text_edit, self.font_combo, self.font_size_spin, self.text_color_button, self.stroke_color_button, self.stroke_width_spin, self.vertical_combo, self.horizontal_combo, self.x_offset_spin, self.y_offset_spin):
-            self.form.addRow("", widget)
+        self.form_labels: list[QLabel] = []
+        for widget in (self.language_combo, self.job_name_edit, self.platform_combo, self.duration_spin, self.output_filename_edit, self.text_check, self.text_edit, self.font_combo, self.font_size_spin, self.text_color_button, self.stroke_color_button, self.stroke_width_spin, self.text_direction_combo, self.rotation_spin, self.vertical_combo, self.horizontal_combo, self.x_offset_spin, self.y_offset_spin, self.preview_label):
+            label = QLabel(); label.setBuddy(widget); self.form_labels.append(label); self.form.addRow(label, widget)
         header = QHBoxLayout(); self.frame_list_label = QLabel(); header.addWidget(self.frame_list_label); header.addStretch(); header.addWidget(self.frame_count_label)
-        editor = QWidget(); editor_layout = QVBoxLayout(editor); editor_layout.addLayout(self.form); editor_layout.addLayout(header); editor_layout.addWidget(self.frame_list, 1); editor_layout.addLayout(frame_buttons); editor_layout.addWidget(self.preview_label)
+        self.form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        self.form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
+        editor = QWidget(); editor_layout = QVBoxLayout(editor); editor_layout.addLayout(self.form); editor_layout.addLayout(header); editor_layout.addWidget(self.frame_list, 1); editor_layout.addLayout(frame_buttons)
         splitter = QSplitter(); splitter.addWidget(queue_panel); splitter.addWidget(editor); splitter.setStretchFactor(1, 1)
         self.content_widget = QWidget(); content_layout = QVBoxLayout(self.content_widget); content_layout.addWidget(splitter, 1)
         bottom = QHBoxLayout(); self.output_folder_edit = QLineEdit(); self.output_browse = QPushButton(); self.export_button = QPushButton(); self.export_button.setDefault(True)
@@ -118,7 +124,7 @@ class StickerMotionWindow(QMainWindow):
         self.output_browse.clicked.connect(self._choose_output_folder); self.export_button.clicked.connect(self._export)
         self.text_color_button.clicked.connect(lambda: self._choose_color("color")); self.stroke_color_button.clicked.connect(lambda: self._choose_color("stroke_color"))
         for widget in (self.job_name_edit, self.output_filename_edit, self.text_edit): widget.textChanged.connect(self._save_job)
-        for widget in (self.platform_combo, self.duration_spin, self.text_check, self.font_combo, self.font_size_spin, self.stroke_width_spin, self.vertical_combo, self.horizontal_combo, self.x_offset_spin, self.y_offset_spin):
+        for widget in (self.platform_combo, self.duration_spin, self.text_check, self.font_combo, self.font_size_spin, self.stroke_width_spin, self.text_direction_combo, self.rotation_spin, self.vertical_combo, self.horizontal_combo, self.x_offset_spin, self.y_offset_spin):
             if isinstance(widget, QCheckBox): widget.toggled.connect(self._save_job)
             elif isinstance(widget, QComboBox): widget.currentIndexChanged.connect(self._save_job)
             else: widget.valueChanged.connect(self._save_job)
@@ -142,11 +148,10 @@ class StickerMotionWindow(QMainWindow):
 
     def _retranslate_ui(self) -> None:
         self.setWindowTitle(self.t("window_title")); self.queue_label.setText(self.t("animation_queue")); self.add_job_button.setText(self.t("add_job")); self.remove_job_button.setText(self.t("remove_job")); self.duplicate_job_button.setText(self.t("duplicate_job")); self.clear_jobs_button.setText(self.t("clear_jobs")); self.move_job_up_button.setText(self.t("move_job_up")); self.move_job_down_button.setText(self.t("move_job_down")); self.export_button.setText(self.t("export_all")); self.output_browse.setText(self.t("browse"))
-        self.text_check.setText(self.t("text_overlay")); self.add_frames_button.setText(self.t("add_frames")); self.move_up_button.setText(self.t("move_up")); self.move_down_button.setText(self.t("move_down")); self.remove_frame_button.setText(self.t("remove_frame")); self.clear_frames_button.setText(self.t("clear_frames")); self.frame_list_label.setText(self.t("frame_list")); self.preview_label.setToolTip(self.t("preview")); self.text_color_button.setText(self.t("text_color")); self.stroke_color_button.setText(self.t("outline_color"))
-        for index, key in enumerate(("language", "job_name", "platform", "duration", "output_filename", "", "text_content", "font", "font_size", "text_color", "outline_color", "outline_width", "vertical_position", "horizontal_alignment", "x_offset", "y_offset")):
-            label = self.form.labelForField(self.form.itemAt(index, QFormLayout.ItemRole.FieldRole).widget())
-            if label is not None: label.setText(self.t(key) if key else "")
-        for combo, prefix, values in ((self.vertical_combo, "position_", ("top", "center", "bottom")), (self.horizontal_combo, "align_", ("left", "center", "right"))):
+        self.text_check.setText(self.t("enabled")); self.add_frames_button.setText(self.t("add_frames")); self.move_up_button.setText(self.t("move_up")); self.move_down_button.setText(self.t("move_down")); self.remove_frame_button.setText(self.t("remove_frame")); self.clear_frames_button.setText(self.t("clear_frames")); self.frame_list_label.setText(self.t("frame_list")); self.preview_label.setToolTip(self.t("preview")); self.text_color_button.setText(self.t("choose_text_color")); self.stroke_color_button.setText(self.t("choose_outline_color"))
+        for label, key in zip(self.form_labels, ("language", "job_name", "platform", "duration", "output_filename", "text_overlay", "text_content", "font", "font_size", "text_color", "outline_color", "outline_width", "text_direction", "rotation_angle", "vertical_position", "horizontal_alignment", "x_offset", "y_offset", "preview"), strict=True):
+            label.setText(self.t(key))
+        for combo, prefix, values in ((self.text_direction_combo, "direction_", ("horizontal", "vertical")), (self.vertical_combo, "position_", ("top", "center", "bottom")), (self.horizontal_combo, "align_", ("left", "center", "right"))):
             for index, value in enumerate(values): combo.setItemText(index, self.t(prefix + value))
         self.output_folder_edit.setPlaceholderText(self.t("output_folder")); self.file_menu.setTitle(self.t("menu_file")); self.export_action.setText(self.t("export_all")); self.quit_action.setText(self.t("menu_quit")); self.help_menu.setTitle(self.t("menu_help")); self.about_action.setText(self.t("menu_about"))
         if not self.status_label.text(): self._set_status(self.t("ready"))
@@ -172,15 +177,15 @@ class StickerMotionWindow(QMainWindow):
     def _load_job(self, row: int) -> None:
         job = self.current_job(); self._loading = True
         enabled = job is not None
-        for widget in (self.job_name_edit, self.platform_combo, self.duration_spin, self.output_filename_edit, self.text_check, self.text_edit, self.font_combo, self.font_size_spin, self.text_color_button, self.stroke_color_button, self.stroke_width_spin, self.vertical_combo, self.horizontal_combo, self.x_offset_spin, self.y_offset_spin, self.frame_list): widget.setEnabled(enabled)
+        for widget in (self.job_name_edit, self.platform_combo, self.duration_spin, self.output_filename_edit, self.text_check, self.text_edit, self.font_combo, self.font_size_spin, self.text_color_button, self.stroke_color_button, self.stroke_width_spin, self.text_direction_combo, self.rotation_spin, self.vertical_combo, self.horizontal_combo, self.x_offset_spin, self.y_offset_spin, self.frame_list): widget.setEnabled(enabled)
         if job:
-            self.job_name_edit.setText(job.name); self.platform_combo.setCurrentIndex(self.platform_combo.findData(job.platform)); self.duration_spin.setValue(job.duration_ms); self.output_filename_edit.setText(job.output_filename); s = job.text_overlay; self.text_check.setChecked(s.enabled); self.text_edit.setText(s.text); self.font_combo.setCurrentText(s.font_family); self.font_size_spin.setValue(s.font_size); self.stroke_width_spin.setValue(s.stroke_width); self.vertical_combo.setCurrentIndex(self.vertical_combo.findData(s.vertical_position)); self.horizontal_combo.setCurrentIndex(self.horizontal_combo.findData(s.horizontal_alignment)); self.x_offset_spin.setValue(s.x_offset); self.y_offset_spin.setValue(s.y_offset); self._populate_frames()
+            self.job_name_edit.setText(job.name); self.platform_combo.setCurrentIndex(self.platform_combo.findData(job.platform)); self.duration_spin.setValue(job.duration_ms); self.output_filename_edit.setText(job.output_filename); s = job.text_overlay; self.text_check.setChecked(s.enabled); self.text_edit.setText(s.text); self.font_combo.setCurrentText(s.font_family); self.font_size_spin.setValue(s.font_size); self.stroke_width_spin.setValue(s.stroke_width); self.text_direction_combo.setCurrentIndex(self.text_direction_combo.findData(getattr(s, "text_direction", "horizontal"))); self.rotation_spin.setValue(getattr(s, "rotation_angle", 0)); self.vertical_combo.setCurrentIndex(self.vertical_combo.findData(s.vertical_position)); self.horizontal_combo.setCurrentIndex(self.horizontal_combo.findData(s.horizontal_alignment)); self.x_offset_spin.setValue(s.x_offset); self.y_offset_spin.setValue(s.y_offset); self._populate_frames()
         else: self.frame_list.clear(); self.preview_label.clear()
         self._loading = False; self._update_frame_count(); self._update_controls(); self._update_preview()
 
     def _save_job(self) -> None:
         if self._loading or not (job := self.current_job()): return
-        job.name = self.job_name_edit.text(); job.platform = self.platform; job.duration_ms = self.duration_spin.value(); job.output_filename = self.output_filename_edit.text(); s = job.text_overlay; s.enabled = self.text_check.isChecked(); s.text = self.text_edit.text(); s.font_family = self.font_combo.currentText(); s.font_size = self.font_size_spin.value(); s.stroke_width = self.stroke_width_spin.value(); s.vertical_position = str(self.vertical_combo.currentData()); s.horizontal_alignment = str(self.horizontal_combo.currentData()); s.x_offset = self.x_offset_spin.value(); s.y_offset = self.y_offset_spin.value(); self._refresh_jobs(self.job_list.currentRow()); self._update_preview()
+        job.name = self.job_name_edit.text(); job.platform = self.platform; job.duration_ms = self.duration_spin.value(); job.output_filename = self.output_filename_edit.text(); s = job.text_overlay; s.enabled = self.text_check.isChecked(); s.text = self.text_edit.text(); s.font_family = self.font_combo.currentText(); s.font_size = self.font_size_spin.value(); s.stroke_width = self.stroke_width_spin.value(); s.text_direction = str(self.text_direction_combo.currentData()); s.rotation_angle = self.rotation_spin.value(); s.vertical_position = str(self.vertical_combo.currentData()); s.horizontal_alignment = str(self.horizontal_combo.currentData()); s.x_offset = self.x_offset_spin.value(); s.y_offset = self.y_offset_spin.value(); self._refresh_jobs(self.job_list.currentRow()); self._update_preview()
 
     def _choose_color(self, field: str) -> None:
         job = self.current_job()
@@ -239,7 +244,8 @@ class StickerMotionWindow(QMainWindow):
 
 
 def launch() -> int:
-    app = QApplication.instance() or QApplication(sys.argv); app.setOrganizationName("StickerMotionToolkit"); app.setApplicationName("Sticker Motion Toolkit")
+    configure_windows_app_identity()
+    app = QApplication.instance() or QApplication(sys.argv); app.setOrganizationName("Saunter"); app.setOrganizationDomain("saunter.app"); app.setApplicationName("Sticker Motion Toolkit"); app.setApplicationDisplayName("Sticker Motion Toolkit")
     icon = Path(__file__).resolve().parents[2] / "assets" / "icon" / "sticker-motion-toolkit-256.png"
     if icon.exists(): app.setWindowIcon(QIcon(str(icon)))
     window = StickerMotionWindow(); window.show(); return app.exec()

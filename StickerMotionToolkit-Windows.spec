@@ -1,5 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+# Runtime sets the stable Windows AppUserModelID Saunter.StickerMotionToolkit.
+# Keep this executable name and Berry Motion ICO stable for pinned shortcuts.
+
 from PyInstaller.utils.hooks import collect_submodules
 
 pillow_hiddenimports = collect_submodules("PIL")

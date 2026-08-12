@@ -34,6 +34,14 @@ The processing pipeline supports 4, 6, or 8 frames and branches only at export:
 - Representative first-frame text preview
 - Dedicated Berry Motion application icon
 
+### v1.2 development
+
+- Every per-job setting has a visible translated label in a compact two-column form
+- Text Overlay supports horizontal text and simple top-to-bottom character stacking
+- Arbitrary text rotation from -180° to +180° is applied after layout and outline rendering
+- Preview and final APNG/GIF export share the same text-rendering implementation
+- Windows application identity uses the stable AppUserModelID `Saunter.StickerMotionToolkit`
+
 ## Shared features
 
 - Individual PNG frame input in the GUI
@@ -68,6 +76,10 @@ Select 4, 6, or 8 individual PNG frames. Files initially use natural filename or
 
 The desktop window is freely resizable. Its content expands horizontally and scrolls vertically when height is limited, keeping every control accessible across all three languages. The selected language is remembered through Qt platform settings.
 
+The v1.2 job editor clearly labels interface language, job name, output format, frame duration, output filename, all text settings, positioning, and offsets. Text may be horizontal or stacked vertically, then rotated by any whole-number angle from -180° to +180°. Positive X moves right, negative X moves left, positive Y moves down, and negative Y moves up. The first-frame preview uses the same renderer as final export.
+
+Vertical text uses simple character-by-character stacking. Advanced East Asian vertical typography, including punctuation rotation and repositioning, is not implemented.
+
 ## CLI
 
 The source CLI remains supported for evenly divided horizontal, vertical, or grid sprite sheets. Auto layout compares sheet proportions with expected cell arrangements: 2×2 for four frames, 3×2 for six, and 4×2 for eight.
@@ -96,7 +108,7 @@ python -m pytest
 
 ## macOS Apple Silicon build
 
-The v1.1 source can be built as a self-contained unsigned arm64 application and DMG on an Apple Silicon Mac:
+The v1.2 source can be built as a self-contained unsigned arm64 application and DMG on an Apple Silicon Mac:
 
 ```bash
 source .venv/bin/activate
@@ -104,7 +116,7 @@ python -m pip install -r requirements-dev.txt
 ./build_macos.sh
 ```
 
-Outputs are written to `dist/Sticker Motion Toolkit.app` and `dist/Sticker-Motion-Toolkit-v1.1.0-macOS-arm64.dmg`. The packaged application opens directly into the GUI; users do not need Python or any Python packages.
+Outputs are written to `dist/Sticker Motion Toolkit.app` and `dist/Sticker-Motion-Toolkit-v1.2.0-macOS-arm64.dmg`. The packaged application opens directly into the GUI; users do not need Python or any Python packages.
 
 The development build is not code-signed or notarized. macOS Gatekeeper may therefore block the first launch. A user who trusts the file can Control-click the app, choose **Open**, and confirm **Open**. Signing and notarization should be added before public distribution.
 
@@ -131,6 +143,8 @@ The native Windows build uses `StickerMotionToolkit-Windows.spec`. Build it on W
 .venv\Scripts\pyinstaller.exe --clean --noconfirm StickerMotionToolkit-Windows.spec
 ```
 
+Windows pinned-taskbar icon handling has been updated through a stable process AppUserModelID plus consistent application, window, PNG, and executable icons. Native Windows verification is still required before the v1.2 release.
+
 ## Architecture
 
 `app/main.py` provides the source CLI, `app/gui_main.py` is the packaged GUI-first entry point, and `app/workers/pipeline.py` is the application orchestration boundary shared by both interfaces.
@@ -151,6 +165,7 @@ Image objects are copied into this project-owned model. There is no import from 
 - Background removal is color-threshold based, not semantic segmentation.
 - The preview is a representative static frame, not an animated preview.
 - Text is static per job and composited consistently onto all frames; animated text effects are not implemented.
+- Vertical text uses simple character stacking; advanced East Asian vertical punctuation and layout are not implemented.
 - Background composition, frame-range grouping, and platform-specific validation/compression remain future extension points.
 - GIF uses palette transparency and therefore cannot preserve partial alpha. APNG preserves full RGBA.
 - Output files are correctly encoded, but submission acceptance still depends on current platform upload rules; the toolkit does not yet enforce those rules.

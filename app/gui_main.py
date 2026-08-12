@@ -24,8 +24,8 @@ def packaged_self_test(output_dir: Path) -> int:
         Image.new("RGBA", (32, 32), color).save(path)
         frame_paths.append(path)
     jobs = [
-        AnimationJob("line-text", frame_paths, platform="line", output_filename="line", text_overlay=TextOverlaySettings(enabled=True, text="測試 Test", font_size=16)),
-        AnimationJob("wechat-plain", frame_paths, platform="wechat", output_filename="wechat"),
+        AnimationJob("line-text", frame_paths, platform="line", output_filename="line", text_overlay=TextOverlaySettings(enabled=True, text="測試", font_size=16, text_direction="vertical", rotation_angle=15)),
+        AnimationJob("wechat-text", frame_paths, platform="wechat", output_filename="wechat", text_overlay=TextOverlaySettings(enabled=True, text="Test", font_size=16, rotation_angle=-15)),
     ]
     line_path, wechat_path = export_jobs(jobs, output_dir)
     for path, expected_format in ((line_path, "PNG"), (wechat_path, "GIF")):

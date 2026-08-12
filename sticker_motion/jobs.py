@@ -18,6 +18,8 @@ class TextOverlaySettings:
     color: str = "#ffffff"
     stroke_color: str = "#000000"
     stroke_width: int = 2
+    text_direction: str = "horizontal"
+    rotation_angle: int = 0
     vertical_position: str = "bottom"
     horizontal_alignment: str = "center"
     x_offset: int = 0

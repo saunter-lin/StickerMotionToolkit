@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QApplication
 
 from sticker_motion.batch import export_jobs, prepare_job_frames, unique_output_path
 from sticker_motion.jobs import AnimationJob, AnimationQueue, TextOverlaySettings
+from sticker_motion.text_overlay import overlay_position, render_text_layer
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -129,3 +130,52 @@ def test_batch_validates_all_jobs_before_writing(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="invalid_jobs:2"):
         export_jobs([valid, invalid], tmp_path / "output")
     assert not (tmp_path / "output").exists()
+
+
+def test_v12_text_defaults_are_backward_compatible() -> None:
+    settings = TextOverlaySettings()
+    assert settings.text_direction == "horizontal"
+    assert settings.rotation_angle == 0
+
+
+@pytest.mark.parametrize("text,direction", [("你好", "horizontal"), ("你好", "vertical"), ("Test", "horizontal"), ("Test", "vertical")])
+def test_horizontal_and_vertical_text_render_transparently(text: str, direction: str) -> None:
+    settings = TextOverlaySettings(enabled=True, text=text, font_size=32, stroke_width=3, text_direction=direction)
+    layer, _ = render_text_layer(settings)
+    assert layer.mode == "RGBA"
+    assert layer.getchannel("A").getextrema() == (0, 255)
+    if direction == "vertical":
+        assert layer.height > layer.width
+
+
+@pytest.mark.parametrize("direction", ["horizontal", "vertical"])
+@pytest.mark.parametrize("angle", [0, 15, -15, 30, -30, 37])
+def test_rotation_angles_render_without_clipping(direction: str, angle: int) -> None:
+    plain, _ = render_text_layer(TextOverlaySettings(enabled=True, text="旋轉 Test", font_size=28, text_direction=direction))
+    rotated, _ = render_text_layer(TextOverlaySettings(enabled=True, text="旋轉 Test", font_size=28, text_direction=direction, rotation_angle=angle))
+    assert rotated.getbbox() is not None
+    if angle:
+        assert rotated.size != plain.size
+
+
+def test_position_presets_and_signed_offsets() -> None:
+    frame, layer = (200, 120), (40, 20)
+    left_top = overlay_position(frame, layer, TextOverlaySettings(horizontal_alignment="left", vertical_position="top"))
+    right_bottom = overlay_position(frame, layer, TextOverlaySettings(horizontal_alignment="right", vertical_position="bottom"))
+    center = overlay_position(frame, layer, TextOverlaySettings(horizontal_alignment="center", vertical_position="center"))
+    shifted = overlay_position(frame, layer, TextOverlaySettings(horizontal_alignment="center", vertical_position="center", x_offset=10, y_offset=-8))
+    assert left_top[0] < center[0] < right_bottom[0]
+    assert left_top[1] < center[1] < right_bottom[1]
+    assert shifted == (center[0] + 10, center[1] - 8)
+
+
+@pytest.mark.parametrize("platform,extension", [("line", ".png"), ("wechat", ".gif")])
+@pytest.mark.parametrize("direction", ["horizontal", "vertical"])
+def test_rotated_text_exports_on_every_frame(tmp_path: Path, platform: str, extension: str, direction: str) -> None:
+    paths = make_frames(tmp_path / f"{platform}-{direction}", 4)
+    settings = TextOverlaySettings(enabled=True, text="測試 Test", font_size=24, text_direction=direction, rotation_angle=15)
+    output = export_jobs([AnimationJob("rotated", paths, platform=platform, text_overlay=settings)], tmp_path / "out")[0]
+    assert output.suffix == extension
+    with Image.open(output) as animation:
+        assert animation.n_frames == 4
+        assert all(animation.seek(index) is None and animation.convert("RGBA").getbbox() is not None for index in range(4))
