@@ -8,3 +8,4 @@ build/
 output/
 *.egg-info/
 .DS_Store
+assets/icon/StickerMotionToolkit.iconset/

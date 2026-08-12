@@ -5,7 +5,7 @@ project_dir=${0:A:h}
 cd "$project_dir"
 
 if [[ "$(uname -m)" != "arm64" ]]; then
-  print -u2 "This V1 build script must run on macOS Apple Silicon (arm64)."
+  print -u2 "This build script must run on macOS Apple Silicon (arm64)."
   exit 1
 fi
 
@@ -24,11 +24,11 @@ PYINSTALLER_CONFIG_DIR="$project_dir/build/pyinstaller-cache" \
 
 app_path="$project_dir/dist/Sticker Motion Toolkit.app"
 dmg_root="$project_dir/build/dmg-root"
-dmg_path="$project_dir/dist/Sticker-Motion-Toolkit-V1-arm64.dmg"
+dmg_path="$project_dir/dist/Sticker-Motion-Toolkit-v1.1.0-macOS-arm64.dmg"
 mkdir -p "$dmg_root"
 ditto "$app_path" "$dmg_root/Sticker Motion Toolkit.app"
 ln -s /Applications "$dmg_root/Applications"
-hdiutil create -volname "Sticker Motion Toolkit V1" -srcfolder "$dmg_root" -ov -format UDZO "$dmg_path"
+hdiutil create -volname "Sticker Motion Toolkit v1.1.0" -srcfolder "$dmg_root" -ov -format UDZO "$dmg_path"
 
 print "Built: $app_path"
 print "Built: $dmg_path"

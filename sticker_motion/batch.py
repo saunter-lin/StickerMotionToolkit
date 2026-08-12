@@ -1,0 +1,77 @@
+"""Sequential safe batch export for animation jobs."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from pathlib import Path
+
+from PIL import Image
+
+from .animation import build_animation
+from .background import remove_background
+from .export import export_animation
+from .jobs import AnimationJob
+from .text_overlay import apply_text_overlay
+
+ProgressCallback = Callable[[int, int, AnimationJob], None]
+
+
+def unique_output_path(folder: Path, filename: str) -> Path:
+    """Never overwrite: append a numeric suffix when a destination exists."""
+    candidate = folder / filename
+    counter = 2
+    while candidate.exists():
+        candidate = folder / f"{Path(filename).stem}-{counter}{Path(filename).suffix}"
+        counter += 1
+    return candidate
+
+
+def prepare_job_frames(job: AnimationJob) -> tuple[list[Image.Image], bool]:
+    frames: list[Image.Image] = []
+    font_available = True
+    for path in job.frame_paths:
+        with Image.open(path) as source:
+            frame = source.convert("RGBA")
+        if job.remove_background:
+            frame = remove_background(frame, job.background_tolerance)
+        frame, available = apply_text_overlay(frame, job.text_overlay)
+        font_available = font_available and available
+        frames.append(frame)
+    return frames, font_available
+
+
+def export_job(job: AnimationJob, output_folder: str | Path) -> Path:
+    errors = job.validation_errors()
+    if errors:
+        raise ValueError(",".join(errors))
+    frames, font_available = prepare_job_frames(job)
+    if not font_available:
+        job.status_message = "font_fallback"
+    animation = build_animation(frames, job.duration_ms)
+    destination = unique_output_path(Path(output_folder), job.resolved_filename())
+    return export_animation(animation, job.platform, destination)
+
+
+def export_jobs(
+    jobs: list[AnimationJob],
+    output_folder: str | Path,
+    progress: ProgressCallback | None = None,
+) -> list[Path]:
+    invalid = {index: job.validation_errors() for index, job in enumerate(jobs) if job.validation_errors()}
+    if invalid:
+        raise ValueError(f"invalid_jobs:{','.join(str(index + 1) for index in invalid)}")
+    folder = Path(output_folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    outputs = []
+    total = len(jobs)
+    for index, job in enumerate(jobs):
+        job.status = "exporting"
+        if progress:
+            progress(index, total, job)
+        try:
+            outputs.append(export_job(job, folder))
+        except Exception:
+            job.status = "error"
+            raise
+        job.status = "complete"
+    return outputs

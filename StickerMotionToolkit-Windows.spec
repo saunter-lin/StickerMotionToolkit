@@ -8,7 +8,7 @@ analysis = Analysis(
     ["app/gui_main.py"],
     pathex=["."],
     binaries=[],
-    datas=[],
+    datas=[("assets/icon/sticker-motion-toolkit-256.png", "assets/icon")],
     hiddenimports=pillow_hiddenimports,
     hookspath=[],
     hooksconfig={},
@@ -29,6 +29,7 @@ executable = EXE(
     strip=False,
     upx=False,
     console=False,
+    icon="assets/icon/sticker-motion-toolkit.ico",
 )
 
 collection = COLLECT(

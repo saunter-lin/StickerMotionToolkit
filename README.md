@@ -15,7 +15,26 @@ The processing pipeline supports 4, 6, or 8 frames and branches only at export:
 - LINE: animated PNG (APNG)
 - WeChat: animated GIF
 
-## V1 features
+## Version overview
+
+### v1.0
+
+- Single-animation workflow using one ordered frame list
+- Official macOS Apple Silicon arm64 and Windows 10/11 x64 builds
+
+### v1.1
+
+- Animation Job Queue for preparing multiple independent animations
+- Per-job frames, platform, duration, background processing, filename, status, and text settings
+- Add, remove, duplicate, clear, and reorder jobs
+- Sequential Export All with progress; mixed LINE APNG and WeChat GIF queues are supported
+- Existing files are never overwritten: `name-2`, `name-3`, and later numeric suffixes are used
+- Optional static text overlay composited onto every frame
+- Host font selection, size, fill/stroke colors, stroke width, top/center/bottom, left/center/right, and X/Y offsets
+- Representative first-frame text preview
+- Dedicated Berry Motion application icon
+
+## Shared features
 
 - Individual PNG frame input in the GUI
 - 4, 6, or 8-frame animations
@@ -77,7 +96,7 @@ python -m pytest
 
 ## macOS Apple Silicon build
 
-The V1 release can be built as a self-contained unsigned arm64 application and DMG on an Apple Silicon Mac:
+The v1.1 source can be built as a self-contained unsigned arm64 application and DMG on an Apple Silicon Mac:
 
 ```bash
 source .venv/bin/activate
@@ -85,9 +104,9 @@ python -m pip install -r requirements-dev.txt
 ./build_macos.sh
 ```
 
-Outputs are written to `dist/Sticker Motion Toolkit.app` and `dist/Sticker-Motion-Toolkit-V1-arm64.dmg`. The packaged application opens directly into the GUI; users do not need Python or any Python packages.
+Outputs are written to `dist/Sticker Motion Toolkit.app` and `dist/Sticker-Motion-Toolkit-v1.1.0-macOS-arm64.dmg`. The packaged application opens directly into the GUI; users do not need Python or any Python packages.
 
-This V1 build is not code-signed or notarized. macOS Gatekeeper may therefore block the first launch. A user who trusts the downloaded file can Control-click the app, choose **Open**, and confirm **Open**. Signing and notarization should be added before public distribution.
+The development build is not code-signed or notarized. macOS Gatekeeper may therefore block the first launch. A user who trusts the file can Control-click the app, choose **Open**, and confirm **Open**. Signing and notarization should be added before public distribution.
 
 For release verification, the frozen executable supports an internal export diagnostic:
 
@@ -130,8 +149,9 @@ Image objects are copied into this project-owned model. There is no import from 
 
 - The CLI accepts one evenly divided sprite sheet; the GUI accepts 4, 6, or 8 individual PNG frames. Irregular atlases are not supported.
 - Background removal is color-threshold based, not semantic segmentation.
-- The contact-sheet API exists, but the first desktop UI does not yet show an animated preview.
-- Text overlays, animated preview, background composition, frame-range grouping, and platform-specific validation/compression are future extension points, not V1 features.
+- The preview is a representative static frame, not an animated preview.
+- Text is static per job and composited consistently onto all frames; animated text effects are not implemented.
+- Background composition, frame-range grouping, and platform-specific validation/compression remain future extension points.
 - GIF uses palette transparency and therefore cannot preserve partial alpha. APNG preserves full RGBA.
 - Output files are correctly encoded, but submission acceptance still depends on current platform upload rules; the toolkit does not yet enforce those rules.
 - Official V1 packaged builds target macOS Apple Silicon arm64 and Windows 10/11 x64. Other platforms have not been built or verified.
