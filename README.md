@@ -33,6 +33,7 @@ The processing pipeline supports 4, 6, or 8 frames and branches only at export:
 - Host font selection, size, fill/stroke colors, stroke width, top/center/bottom, left/center/right, and X/Y offsets
 - Representative first-frame text preview
 - Dedicated Berry Motion application icon
+- Bundled Iansui, jf open Huninn, and ChenYuluoyan fonts, with local-font selection still available
 
 ### v1.2 development
 
@@ -49,6 +50,7 @@ The processing pipeline supports 4, 6, or 8 frames and branches only at export:
 - Natural filename sorting and manual playback-order management
 - Move Up, Move Down, Remove selected, and Clear all controls
 - Default 200 ms duration per frame, configurable in the GUI and CLI
+- WeChat GIF is the default for new jobs; LINE APNG remains available from the same output-format menu
 - Optional solid-background removal remains available through the source CLI and processing API for compatibility; it is not shown in the v1.1 GUI
 - LINE APNG and WeChat GIF export
 - Traditional Chinese, Simplified Chinese, and English GUI
@@ -77,6 +79,8 @@ Select 4, 6, or 8 individual PNG frames. Files initially use natural filename or
 The desktop window is freely resizable. Its content expands horizontally and scrolls vertically when height is limited, keeping every control accessible across all three languages. The selected language is remembered through Qt platform settings.
 
 The v1.2 job editor clearly labels interface language, job name, output format, frame duration, output filename, all text settings, positioning, and offsets. Text may be horizontal or stacked vertically, then rotated by any whole-number angle from -180° to +180°. Positive X moves right, negative X moves left, positive Y moves down, and negative Y moves up. The first-frame preview uses the same renderer as final export.
+
+The font menu always starts with 芫荽, 粉圓體, and 辰宇落雁體, followed by detected system fonts and **Choose Local Font…**. 芫荽 is the default. Bundled fonts are application resources and are not installed into macOS or Windows. Missing glyphs use the bundled/system fallback chain shared by preview and export. See `THIRD_PARTY_LICENSES.md` for official sources and licenses.
 
 Vertical text uses simple character-by-character stacking. Advanced East Asian vertical typography, including punctuation rotation and repositioning, is not implemented.
 

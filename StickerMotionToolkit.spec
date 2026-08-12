@@ -8,7 +8,11 @@ analysis = Analysis(
     ["app/gui_main.py"],
     pathex=["."],
     binaries=[],
-    datas=[("assets/icon/sticker-motion-toolkit-256.png", "assets/icon")],
+    datas=[
+        ("assets/icon/sticker-motion-toolkit-256.png", "assets/icon"),
+        ("assets/fonts", "assets/fonts"),
+        ("THIRD_PARTY_LICENSES.md", "."),
+    ],
     hiddenimports=pillow_hiddenimports,
     hookspath=[],
     hooksconfig={},

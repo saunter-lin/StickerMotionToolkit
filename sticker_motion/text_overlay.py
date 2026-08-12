@@ -6,20 +6,16 @@ from PIL import Image
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QImage, QPainter, QPainterPath, QPen
 
+from .fonts import available_font_families, resolved_font_families
 from .jobs import TextOverlaySettings
 
 
-def available_font_families() -> list[str]:
-    return sorted(QFontDatabase.families(), key=str.casefold)
-
-
 def _font(settings: TextOverlaySettings) -> tuple[QFont, bool]:
-    families = set(QFontDatabase.families())
-    available = bool(settings.font_family and settings.font_family in families)
-    family = settings.font_family if available else QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont).family()
-    font = QFont(family)
+    families, available = resolved_font_families(settings.font_family)
+    font = QFont(families[0])
+    font.setFamilies(families)
     font.setPixelSize(max(1, settings.font_size))
-    return font, available or not settings.font_family
+    return font, available
 
 
 def _text_path(settings: TextOverlaySettings, font: QFont) -> QPainterPath:

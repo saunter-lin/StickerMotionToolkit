@@ -26,9 +26,12 @@ def settings(tmp_path):
 
 def test_window_defaults_match_processing_defaults(app, settings) -> None:
     window = StickerMotionWindow(settings)
-    assert window.platform == "line"
+    assert window.platform == "wechat"
+    assert [window.platform_combo.itemData(index) for index in range(2)] == ["wechat", "line"]
+    assert [window.platform_combo.itemText(index) for index in range(2)] == ["WeChat (GIF)", "LINE (APNG)"]
     assert window.frame_list.count() == 0
     assert window.duration_spin.value() == 200
+    assert window.font_combo.currentData() == "Iansui"
     assert not hasattr(window, "background_check")
     assert window.language == "zh-TW"
     assert window.export_button.text() == "全部匯出"
@@ -39,8 +42,8 @@ def test_platform_switch_updates_existing_output_suffix(app, settings) -> None:
     window = StickerMotionWindow(settings)
     window.output_filename_edit.setText("sticker.png")
     window.platform_combo.setCurrentIndex(1)
-    assert window.platform == "wechat"
-    assert window.current_job().resolved_filename().endswith(".gif")
+    assert window.platform == "line"
+    assert window.current_job().resolved_filename().endswith(".png")
     window.close()
 
 
@@ -129,7 +132,7 @@ def test_job_selection_preserves_independent_state(app, settings, tmp_path) -> N
     assert window.text_edit.text() == "哈囉"
     window.job_list.setCurrentRow(1)
     assert window.current_job() is second
-    assert window.platform == "wechat"
+    assert window.platform == "line"
     window.close()
 
 
@@ -200,4 +203,30 @@ def test_language_switch_preserves_new_text_controls(app, settings) -> None:
     assert job.text_overlay.rotation_angle == -37
     assert (job.text_overlay.x_offset, job.text_overlay.y_offset) == (12, -9)
     assert window.text_direction_combo.currentText() == "Vertical"
+    window.close()
+
+
+def test_bundled_fonts_are_fixed_first_and_local_action_is_last(app, settings) -> None:
+    from sticker_motion.fonts import LOCAL_FONT_ACTION, SYSTEM_SEPARATOR
+
+    window = StickerMotionWindow(settings)
+    assert [window.font_combo.itemText(index) for index in range(3)] == ["芫荽", "粉圓體", "辰宇落雁體"]
+    assert [window.font_combo.itemData(index) for index in range(3)] == ["Iansui", "jf-openhuninn-2.1", "ChenYuluoyan 2.0"]
+    separator_index = next(index for index in range(window.font_combo.count()) if window.font_combo.itemText(index) == SYSTEM_SEPARATOR)
+    assert not window.font_combo.model().item(separator_index).isEnabled()
+    assert window.font_combo.itemData(window.font_combo.count() - 1) == LOCAL_FONT_ACTION
+    assert window.font_combo.count() > 6
+    window.close()
+
+
+def test_valid_saved_font_restores_and_missing_font_falls_back(app, settings) -> None:
+    window = StickerMotionWindow(settings)
+    job = window.current_job()
+    job.text_overlay.font_family = "jf-openhuninn-2.1"
+    window._load_job(0)
+    assert window.font_combo.currentData() == "jf-openhuninn-2.1"
+    job.text_overlay.font_family = "Missing Font"
+    window._load_job(0)
+    assert window.font_combo.currentData() == "Iansui"
+    assert job.text_overlay.font_family == "Iansui"
     window.close()

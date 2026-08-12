@@ -134,8 +134,13 @@ def test_batch_validates_all_jobs_before_writing(tmp_path: Path) -> None:
 
 def test_v12_text_defaults_are_backward_compatible() -> None:
     settings = TextOverlaySettings()
+    assert settings.font_family == "Iansui"
     assert settings.text_direction == "horizontal"
     assert settings.rotation_angle == 0
+
+
+def test_default_platform_is_wechat() -> None:
+    assert AnimationJob("default").platform == "wechat"
 
 
 @pytest.mark.parametrize("text,direction", [("你好", "horizontal"), ("你好", "vertical"), ("Test", "horizontal"), ("Test", "vertical")])

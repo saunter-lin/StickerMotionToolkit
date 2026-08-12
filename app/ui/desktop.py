@@ -20,7 +20,10 @@ from app.ui.i18n import DEFAULT_LANGUAGE, LANGUAGES, localized_error, translate
 from app.windows_identity import configure_windows_app_identity
 from sticker_motion.batch import export_jobs, prepare_job_frames
 from sticker_motion.jobs import AnimationJob, AnimationQueue
-from sticker_motion.text_overlay import available_font_families
+from sticker_motion.fonts import (
+    BUNDLED_FONTS, DEFAULT_FONT, LOCAL_FONT_ACTION, SYSTEM_SEPARATOR,
+    available_font_families, register_local_font, valid_font_family,
+)
 
 
 class ExportWorker(QObject):
@@ -75,7 +78,7 @@ class StickerMotionWindow(QMainWindow):
         self.queue_label = QLabel(); queue_layout.addWidget(self.queue_label); queue_layout.addWidget(self.job_list, 1); queue_layout.addLayout(queue_buttons)
 
         self.job_name_edit, self.output_filename_edit = QLineEdit(), QLineEdit()
-        self.platform_combo = QComboBox(); self.platform_combo.addItem("LINE (APNG)", "line"); self.platform_combo.addItem("WeChat (GIF)", "wechat")
+        self.platform_combo = QComboBox(); self.platform_combo.addItem("WeChat (GIF)", "wechat"); self.platform_combo.addItem("LINE (APNG)", "line")
         self.frame_count_combo = QComboBox(); [self.frame_count_combo.addItem(str(count), count) for count in (4, 6, 8)]; self.frame_count_combo.setCurrentIndex(2); self.frame_count_combo.setVisible(False)
         self.duration_spin = QSpinBox(); self.duration_spin.setRange(10, 10000); self.duration_spin.setValue(200); self.duration_spin.setSuffix(" ms")
         self.frame_list = QListWidget(); self.frame_list.setMinimumHeight(150); self.frame_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -87,7 +90,7 @@ class StickerMotionWindow(QMainWindow):
             frame_buttons.addWidget(button, index // 3, index % 3)
 
         self.text_check, self.text_edit = QCheckBox(), QLineEdit()
-        self.font_combo = QComboBox(); self.font_combo.addItems(available_font_families())
+        self.font_combo = QComboBox(); self._populate_font_combo()
         self.font_size_spin = QSpinBox(); self.font_size_spin.setRange(6, 300); self.font_size_spin.setValue(36)
         self.text_color_button, self.stroke_color_button = QPushButton(), QPushButton()
         self.stroke_width_spin = QSpinBox(); self.stroke_width_spin.setRange(0, 20); self.stroke_width_spin.setValue(2)
@@ -123,6 +126,7 @@ class StickerMotionWindow(QMainWindow):
         self.add_frames_button.clicked.connect(self._choose_frames); self.move_up_button.clicked.connect(self._move_up); self.move_down_button.clicked.connect(self._move_down); self.remove_frame_button.clicked.connect(self._remove_selected); self.clear_frames_button.clicked.connect(self._clear_frames)
         self.output_browse.clicked.connect(self._choose_output_folder); self.export_button.clicked.connect(self._export)
         self.text_color_button.clicked.connect(lambda: self._choose_color("color")); self.stroke_color_button.clicked.connect(lambda: self._choose_color("stroke_color"))
+        self.font_combo.activated.connect(self._font_activated)
         for widget in (self.job_name_edit, self.output_filename_edit, self.text_edit): widget.textChanged.connect(self._save_job)
         for widget in (self.platform_combo, self.duration_spin, self.text_check, self.font_combo, self.font_size_spin, self.stroke_width_spin, self.text_direction_combo, self.rotation_spin, self.vertical_combo, self.horizontal_combo, self.x_offset_spin, self.y_offset_spin):
             if isinstance(widget, QCheckBox): widget.toggled.connect(self._save_job)
@@ -133,6 +137,28 @@ class StickerMotionWindow(QMainWindow):
     def _build_menus(self) -> None:
         self.file_menu = self.menuBar().addMenu(""); self.export_action = self.file_menu.addAction(""); self.export_action.triggered.connect(self._export); self.file_menu.addSeparator(); self.quit_action = self.file_menu.addAction(""); self.quit_action.triggered.connect(self.close)
         self.help_menu = self.menuBar().addMenu(""); self.about_action = self.help_menu.addAction(""); self.about_action.triggered.connect(lambda: QMessageBox.about(self, self.t("about_title"), self.t("about_text")))
+
+    def _populate_font_combo(self, selected: str = DEFAULT_FONT) -> None:
+        self.font_combo.clear()
+        for font in BUNDLED_FONTS:
+            self.font_combo.addItem(font.label, font.family)
+        self.font_combo.addItem(SYSTEM_SEPARATOR)
+        separator_index = self.font_combo.count() - 1
+        self.font_combo.model().item(separator_index).setEnabled(False)
+        for family in available_font_families():
+            self.font_combo.addItem(family, family)
+        self.font_combo.addItem(self.t("choose_local_font"), LOCAL_FONT_ACTION)
+        family = selected if valid_font_family(selected) else DEFAULT_FONT
+        self.font_combo.setCurrentIndex(self.font_combo.findData(family))
+
+    def _font_activated(self, index: int) -> None:
+        if self.font_combo.itemData(index) != LOCAL_FONT_ACTION:
+            return
+        current = self.current_job().text_overlay.font_family if self.current_job() else DEFAULT_FONT
+        path, _ = QFileDialog.getOpenFileName(self, self.t("choose_local_font"), "", self.t("font_filter"))
+        family = register_local_font(path) if path else None
+        self._populate_font_combo(family or current)
+        self._save_job()
 
     def t(self, key: str, **values: object) -> str: return translate(self.language, key, **values)
     @property
@@ -149,6 +175,8 @@ class StickerMotionWindow(QMainWindow):
     def _retranslate_ui(self) -> None:
         self.setWindowTitle(self.t("window_title")); self.queue_label.setText(self.t("animation_queue")); self.add_job_button.setText(self.t("add_job")); self.remove_job_button.setText(self.t("remove_job")); self.duplicate_job_button.setText(self.t("duplicate_job")); self.clear_jobs_button.setText(self.t("clear_jobs")); self.move_job_up_button.setText(self.t("move_job_up")); self.move_job_down_button.setText(self.t("move_job_down")); self.export_button.setText(self.t("export_all")); self.output_browse.setText(self.t("browse"))
         self.text_check.setText(self.t("enabled")); self.add_frames_button.setText(self.t("add_frames")); self.move_up_button.setText(self.t("move_up")); self.move_down_button.setText(self.t("move_down")); self.remove_frame_button.setText(self.t("remove_frame")); self.clear_frames_button.setText(self.t("clear_frames")); self.frame_list_label.setText(self.t("frame_list")); self.preview_label.setToolTip(self.t("preview")); self.text_color_button.setText(self.t("choose_text_color")); self.stroke_color_button.setText(self.t("choose_outline_color"))
+        local_index = self.font_combo.findData(LOCAL_FONT_ACTION)
+        if local_index >= 0: self.font_combo.setItemText(local_index, self.t("choose_local_font"))
         for label, key in zip(self.form_labels, ("language", "job_name", "platform", "duration", "output_filename", "text_overlay", "text_content", "font", "font_size", "text_color", "outline_color", "outline_width", "text_direction", "rotation_angle", "vertical_position", "horizontal_alignment", "x_offset", "y_offset", "preview"), strict=True):
             label.setText(self.t(key))
         for combo, prefix, values in ((self.text_direction_combo, "direction_", ("horizontal", "vertical")), (self.vertical_combo, "position_", ("top", "center", "bottom")), (self.horizontal_combo, "align_", ("left", "center", "right"))):
@@ -179,13 +207,15 @@ class StickerMotionWindow(QMainWindow):
         enabled = job is not None
         for widget in (self.job_name_edit, self.platform_combo, self.duration_spin, self.output_filename_edit, self.text_check, self.text_edit, self.font_combo, self.font_size_spin, self.text_color_button, self.stroke_color_button, self.stroke_width_spin, self.text_direction_combo, self.rotation_spin, self.vertical_combo, self.horizontal_combo, self.x_offset_spin, self.y_offset_spin, self.frame_list): widget.setEnabled(enabled)
         if job:
-            self.job_name_edit.setText(job.name); self.platform_combo.setCurrentIndex(self.platform_combo.findData(job.platform)); self.duration_spin.setValue(job.duration_ms); self.output_filename_edit.setText(job.output_filename); s = job.text_overlay; self.text_check.setChecked(s.enabled); self.text_edit.setText(s.text); self.font_combo.setCurrentText(s.font_family); self.font_size_spin.setValue(s.font_size); self.stroke_width_spin.setValue(s.stroke_width); self.text_direction_combo.setCurrentIndex(self.text_direction_combo.findData(getattr(s, "text_direction", "horizontal"))); self.rotation_spin.setValue(getattr(s, "rotation_angle", 0)); self.vertical_combo.setCurrentIndex(self.vertical_combo.findData(s.vertical_position)); self.horizontal_combo.setCurrentIndex(self.horizontal_combo.findData(s.horizontal_alignment)); self.x_offset_spin.setValue(s.x_offset); self.y_offset_spin.setValue(s.y_offset); self._populate_frames()
+            self.job_name_edit.setText(job.name); self.platform_combo.setCurrentIndex(self.platform_combo.findData(job.platform if job.platform in ("wechat", "line") else "wechat")); self.duration_spin.setValue(job.duration_ms); self.output_filename_edit.setText(job.output_filename); s = job.text_overlay; self.text_check.setChecked(s.enabled); self.text_edit.setText(s.text); family = s.font_family if valid_font_family(s.font_family) else DEFAULT_FONT; s.font_family = family; self.font_combo.setCurrentIndex(self.font_combo.findData(family)); self.font_size_spin.setValue(s.font_size); self.stroke_width_spin.setValue(s.stroke_width); self.text_direction_combo.setCurrentIndex(self.text_direction_combo.findData(getattr(s, "text_direction", "horizontal"))); self.rotation_spin.setValue(getattr(s, "rotation_angle", 0)); self.vertical_combo.setCurrentIndex(self.vertical_combo.findData(s.vertical_position)); self.horizontal_combo.setCurrentIndex(self.horizontal_combo.findData(s.horizontal_alignment)); self.x_offset_spin.setValue(s.x_offset); self.y_offset_spin.setValue(s.y_offset); self._populate_frames()
         else: self.frame_list.clear(); self.preview_label.clear()
         self._loading = False; self._update_frame_count(); self._update_controls(); self._update_preview()
 
     def _save_job(self) -> None:
         if self._loading or not (job := self.current_job()): return
-        job.name = self.job_name_edit.text(); job.platform = self.platform; job.duration_ms = self.duration_spin.value(); job.output_filename = self.output_filename_edit.text(); s = job.text_overlay; s.enabled = self.text_check.isChecked(); s.text = self.text_edit.text(); s.font_family = self.font_combo.currentText(); s.font_size = self.font_size_spin.value(); s.stroke_width = self.stroke_width_spin.value(); s.text_direction = str(self.text_direction_combo.currentData()); s.rotation_angle = self.rotation_spin.value(); s.vertical_position = str(self.vertical_combo.currentData()); s.horizontal_alignment = str(self.horizontal_combo.currentData()); s.x_offset = self.x_offset_spin.value(); s.y_offset = self.y_offset_spin.value(); self._refresh_jobs(self.job_list.currentRow()); self._update_preview()
+        selected_font = self.font_combo.currentData()
+        if selected_font == LOCAL_FONT_ACTION: return
+        job.name = self.job_name_edit.text(); job.platform = self.platform; job.duration_ms = self.duration_spin.value(); job.output_filename = self.output_filename_edit.text(); s = job.text_overlay; s.enabled = self.text_check.isChecked(); s.text = self.text_edit.text(); s.font_family = str(selected_font) if selected_font is not None else DEFAULT_FONT; s.font_size = self.font_size_spin.value(); s.stroke_width = self.stroke_width_spin.value(); s.text_direction = str(self.text_direction_combo.currentData()); s.rotation_angle = self.rotation_spin.value(); s.vertical_position = str(self.vertical_combo.currentData()); s.horizontal_alignment = str(self.horizontal_combo.currentData()); s.x_offset = self.x_offset_spin.value(); s.y_offset = self.y_offset_spin.value(); self._refresh_jobs(self.job_list.currentRow()); self._update_preview()
 
     def _choose_color(self, field: str) -> None:
         job = self.current_job()

@@ -13,7 +13,7 @@ SUPPORTED_FRAME_COUNTS = (4, 6, 8)
 class TextOverlaySettings:
     enabled: bool = False
     text: str = ""
-    font_family: str = ""
+    font_family: str = "Iansui"
     font_size: int = 36
     color: str = "#ffffff"
     stroke_color: str = "#000000"
@@ -31,7 +31,7 @@ class AnimationJob:
     name: str
     frame_paths: list[Path] = field(default_factory=list)
     duration_ms: int = 200
-    platform: str = "line"
+    platform: str = "wechat"
     remove_background: bool = False
     background_tolerance: int = 0
     output_filename: str = ""
