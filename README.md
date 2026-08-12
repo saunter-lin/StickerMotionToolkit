@@ -116,13 +116,13 @@ For release verification, the frozen executable supports an internal export diag
 
 ## Windows 10/11 x64
 
-Download `StickerMotionToolkit-v1.0.0-Windows-x64.zip` from the official [saunter-lin/StickerMotionToolkit v1.0.0 release](https://github.com/saunter-lin/StickerMotionToolkit/releases/tag/v1.0.0).
+Download `StickerMotionToolkit-v1.1.0-Windows-x64.zip` from the official [saunter-lin/StickerMotionToolkit v1.1.0 release](https://github.com/saunter-lin/StickerMotionToolkit/releases/tag/v1.1.0).
 
 1. Fully extract the ZIP before launching. Do not run the executable from inside the ZIP.
 2. Keep the complete extracted folder together; this is an onedir distribution and the `_internal` folder is required.
 3. Launch `Sticker Motion Toolkit.exe`.
 
-Python and Python packages are not required. This V1 Windows build is unsigned, so Windows SmartScreen may display a warning. Verify that the ZIP came from the official GitHub release before opening it.
+Python and Python packages are not required. This v1.1 Windows build is unsigned, so Windows SmartScreen may display a warning. Verify that the ZIP came from the official GitHub release before opening it.
 
 The native Windows build uses `StickerMotionToolkit-Windows.spec`. Build it on Windows x64 with:
 
