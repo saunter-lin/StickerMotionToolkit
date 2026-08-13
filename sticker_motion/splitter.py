@@ -7,12 +7,16 @@ from typing import Literal
 
 from PIL import Image
 
-SUPPORTED_FRAME_COUNTS = (4, 6, 8)
+MIN_FRAME_COUNT = 2
+MAX_FRAME_COUNT = 15
 Layout = Literal["auto", "horizontal", "vertical", "grid"]
 
 
 def _grid_shape(frame_count: int) -> tuple[int, int]:
-    return {4: (2, 2), 6: (3, 2), 8: (4, 2)}[frame_count]
+    rows = int(frame_count**0.5)
+    while frame_count % rows:
+        rows -= 1
+    return frame_count // rows, rows
 
 
 def detect_layout(size: tuple[int, int], frame_count: int) -> Literal["horizontal", "vertical", "grid"]:
@@ -33,8 +37,8 @@ def split_sheet(
     layout: Layout = "auto",
 ) -> list[Image.Image]:
     """Return frames in reading order (left-to-right, then top-to-bottom)."""
-    if frame_count not in SUPPORTED_FRAME_COUNTS:
-        raise ValueError(f"frame_count must be one of {SUPPORTED_FRAME_COUNTS}")
+    if not MIN_FRAME_COUNT <= frame_count <= MAX_FRAME_COUNT:
+        raise ValueError(f"frame_count must be between {MIN_FRAME_COUNT} and {MAX_FRAME_COUNT}")
     if layout not in {"auto", "horizontal", "vertical", "grid"}:
         raise ValueError("layout must be auto, horizontal, vertical, or grid")
 

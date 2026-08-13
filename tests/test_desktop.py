@@ -113,6 +113,79 @@ def test_frames_are_naturally_sorted_and_reordered(app, settings, tmp_path) -> N
     window.close()
 
 
+def test_frame_changes_immediately_refresh_validation_preview_and_export(app, settings, tmp_path) -> None:
+    from PIL import Image
+
+    window = StickerMotionWindow(settings)
+    paths = []
+    for index in range(7):
+        path = tmp_path / f"frame{index}.png"
+        Image.new("RGBA", (20, 20), (index * 20, 0, 0, 255)).save(path)
+        paths.append(str(path))
+    window.add_frame_paths(paths)
+    assert window.current_job().validation_errors() == []
+    assert len(window._preview_frames) == 7
+    assert window.preview_timer.interval() == 220
+    assert window.export_button.isEnabled()
+    window.frame_list.setCurrentRow(6)
+    window._remove_selected()
+    assert window.current_job().frame_count == 6
+    assert window.current_job().validation_errors() == []
+    assert len(window._preview_frames) == 6
+    assert window.export_button.isEnabled()
+    window.close()
+
+
+def test_frame_limit_immediately_refreshes_invalid_and_valid_states(app, settings, tmp_path) -> None:
+    from PIL import Image
+
+    window = StickerMotionWindow(settings)
+    paths = []
+    for index in range(16):
+        path = tmp_path / f"frame{index:02d}.png"
+        Image.new("RGBA", (20, 20), (index * 10, 0, 0, 255)).save(path)
+        paths.append(str(path))
+    window.add_frame_paths(paths[:15])
+    assert window.current_job().frame_count == 15
+    assert window.current_job().validation_errors() == []
+    assert len(window._preview_frames) == 15
+    assert window.export_button.isEnabled()
+    window.add_frame_paths(paths[15:])
+    assert window.current_job().validation_errors() == ["frame_count:16"]
+    assert len(window._preview_frames) == 16
+    assert not window.export_button.isEnabled()
+    window.frame_list.setCurrentRow(15)
+    window._remove_selected()
+    assert window.current_job().frame_count == 15
+    assert window.current_job().validation_errors() == []
+    assert len(window._preview_frames) == 15
+    assert window.export_button.isEnabled()
+    window.close()
+
+
+@pytest.mark.parametrize("count", [2, 5, 7])
+def test_preview_accepts_arbitrary_frame_counts_with_compositing(app, settings, tmp_path, count: int) -> None:
+    from PIL import Image
+
+    window = StickerMotionWindow(settings)
+    paths = []
+    for index in range(count):
+        path = tmp_path / f"frame{index}.png"
+        Image.new("RGBA", (30, 30), (index * 20, 0, 0, 128)).save(path)
+        paths.append(str(path))
+    background = tmp_path / "background.png"; Image.new("RGB", (30, 30), "blue").save(background)
+    window.add_frame_paths(paths)
+    window.duration_spin.setValue(317)
+    window.text_check.setChecked(True); window.text_edit.setText("測試")
+    window.add_background_path(str(background))
+    assert len(window._preview_frames) == count
+    assert window.preview_timer.interval() == 317
+    before = window._preview_index; window._advance_preview()
+    assert window._preview_index == (before + 1) % count
+    assert window.current_job().backgrounds[0].end_frame == count
+    window.close()
+
+
 def test_job_selection_preserves_independent_state(app, settings, tmp_path) -> None:
     window = StickerMotionWindow(settings)
     first_paths = [str(tmp_path / f"a{i}.png") for i in range(4)]

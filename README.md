@@ -10,7 +10,7 @@ prepared individual PNG frames
 → animated sticker
 ```
 
-The processing pipeline supports 4, 6, or 8 frames and branches only at export:
+The processing pipeline supports animations with 2–15 frames and branches only at export:
 
 - LINE: animated PNG (APNG)
 - WeChat: animated GIF
@@ -56,7 +56,7 @@ The processing pipeline supports 4, 6, or 8 frames and branches only at export:
 ## Shared features
 
 - Individual PNG frame input in the GUI
-- 4, 6, or 8-frame animations
+- Animations with 2–15 frames
 - Natural filename sorting and manual playback-order management
 - Move Up, Move Down, Remove selected, and Clear all controls
 - New GUI groups default to 220 ms per frame; duration remains configurable and the CLI default remains 200 ms
@@ -84,7 +84,7 @@ python -m pip install -r requirements.txt
 python -m app.main --gui
 ```
 
-Select 4, 6, or 8 individual PNG frames. Files initially use natural filename order (for example, `frame2.png` precedes `frame10.png`) and can then be moved, removed, or cleared. The visible list is the exact APNG/GIF playback order.
+Select 2–15 individual PNG frames. Files initially use natural filename order (for example, `frame2.png` precedes `frame10.png`) and can then be moved, removed, or cleared. The visible list is the exact APNG/GIF playback order.
 
 The desktop window is freely resizable. Its content expands horizontally and scrolls vertically when height is limited, keeping every control accessible across all three languages. The selected language is remembered through Qt platform settings.
 
@@ -180,7 +180,7 @@ Image objects are copied into this project-owned model. There is no import from 
 
 ## Current limitations
 
-- The CLI accepts one evenly divided sprite sheet; the GUI accepts 4, 6, or 8 individual PNG frames. Irregular atlases are not supported.
+- The CLI accepts one evenly divided sprite sheet; the GUI accepts 2–15 individual PNG frames. Irregular atlases are not supported.
 - Background removal is color-threshold based, not semantic segmentation.
 - Text is static per job and composited consistently onto all frames; animated text effects are not implemented.
 - Vertical text uses simple character stacking; advanced East Asian vertical punctuation and layout are not implemented.

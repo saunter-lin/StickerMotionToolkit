@@ -82,7 +82,7 @@ class StickerMotionWindow(QMainWindow):
 
         self.job_name_edit, self.output_filename_edit = QLineEdit(), QLineEdit()
         self.platform_combo = QComboBox(); self.platform_combo.addItem("WeChat (GIF)", "wechat"); self.platform_combo.addItem("LINE (APNG)", "line")
-        self.frame_count_combo = QComboBox(); [self.frame_count_combo.addItem(str(count), count) for count in (4, 6, 8)]; self.frame_count_combo.setCurrentIndex(2); self.frame_count_combo.setVisible(False)
+        self.frame_count_combo = QComboBox(); self.frame_count_combo.setVisible(False)
         self.duration_spin = QSpinBox(); self.duration_spin.setRange(10, 10000); self.duration_spin.setValue(220); self.duration_spin.setSuffix(" ms")
         self.frame_list = QListWidget(); self.frame_list.setMinimumHeight(110); self.frame_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding); self.frame_list.setViewMode(QListWidget.ViewMode.IconMode); self.frame_list.setFlow(QListWidget.Flow.LeftToRight); self.frame_list.setWrapping(True); self.frame_list.setResizeMode(QListWidget.ResizeMode.Adjust); self.frame_list.setMovement(QListWidget.Movement.Static); self.frame_list.setGridSize(QSize(150, 30)); self.frame_list.setUniformItemSizes(True)
         self.frame_count_label = QLabel()
@@ -293,7 +293,7 @@ class StickerMotionWindow(QMainWindow):
         if job and 0 <= row < len(job.backgrounds): job.backgrounds.pop(row); self._populate_backgrounds(); self._refresh_jobs(self.job_list.currentRow()); self._update_preview()
     def _update_frame_count(self) -> None: self.frame_count_label.setText(self.t("frame_count", count=self.frame_list.count()))
     def _update_controls(self) -> None:
-        jr = self.job_list.currentRow(); fr = self.frame_list.currentRow(); self.remove_job_button.setEnabled(jr >= 0); self.duplicate_job_button.setEnabled(jr >= 0); self.move_job_up_button.setEnabled(jr > 0); self.move_job_down_button.setEnabled(0 <= jr < len(self.queue.jobs) - 1); self.clear_jobs_button.setEnabled(bool(self.queue.jobs)); self.move_up_button.setEnabled(fr > 0); self.move_down_button.setEnabled(0 <= fr < self.frame_list.count() - 1); self.remove_frame_button.setEnabled(fr >= 0); self.clear_frames_button.setEnabled(self.frame_list.count() > 0); self._update_frame_count()
+        jr = self.job_list.currentRow(); fr = self.frame_list.currentRow(); self.remove_job_button.setEnabled(jr >= 0); self.duplicate_job_button.setEnabled(jr >= 0); self.move_job_up_button.setEnabled(jr > 0); self.move_job_down_button.setEnabled(0 <= jr < len(self.queue.jobs) - 1); self.clear_jobs_button.setEnabled(bool(self.queue.jobs)); self.move_up_button.setEnabled(fr > 0); self.move_down_button.setEnabled(0 <= fr < self.frame_list.count() - 1); self.remove_frame_button.setEnabled(fr >= 0); self.clear_frames_button.setEnabled(self.frame_list.count() > 0); self.export_button.setEnabled(bool(self.queue.jobs) and not self.queue.validation_errors()); self._update_frame_count()
 
     def _update_preview(self) -> None:
         self.preview_timer.stop(); self._preview_frames = []; self._preview_index = 0

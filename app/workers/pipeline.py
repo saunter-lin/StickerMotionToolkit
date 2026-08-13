@@ -9,7 +9,7 @@ from PIL import Image
 
 from sticker_motion.animation import DEFAULT_FRAME_DURATION_MS, build_animation
 from sticker_motion.export import Platform, export_animation
-from sticker_motion.splitter import Layout, split_sheet
+from sticker_motion.splitter import MAX_FRAME_COUNT, MIN_FRAME_COUNT, Layout, split_sheet
 
 
 @dataclass(frozen=True)
@@ -47,8 +47,8 @@ def process_frame_files(
     background_tolerance: int = 0,
 ) -> Path:
     """Build an animation from ordered frame files without changing their order."""
-    if len(sources) not in (4, 6, 8):
-        raise ValueError("frame_count must be one of (4, 6, 8)")
+    if not MIN_FRAME_COUNT <= len(sources) <= MAX_FRAME_COUNT:
+        raise ValueError(f"frame_count must be between {MIN_FRAME_COUNT} and {MAX_FRAME_COUNT}")
     frames = []
     for source in sources:
         with Image.open(source) as image:

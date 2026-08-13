@@ -6,7 +6,8 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 
-SUPPORTED_FRAME_COUNTS = (4, 6, 8)
+from .splitter import MAX_FRAME_COUNT, MIN_FRAME_COUNT
+
 DEFAULT_GROUP_DURATION_MS = 220
 
 
@@ -65,7 +66,7 @@ class AnimationJob:
 
     def validation_errors(self) -> list[str]:
         errors = []
-        if self.frame_count not in SUPPORTED_FRAME_COUNTS:
+        if not MIN_FRAME_COUNT <= self.frame_count <= MAX_FRAME_COUNT:
             errors.append(f"frame_count:{self.frame_count}")
         if self.duration_ms <= 0:
             errors.append("duration")

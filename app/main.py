@@ -13,7 +13,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("source", nargs="?", type=Path, help="input sprite sheet")
     parser.add_argument("output", nargs="?", type=Path, help="output .png (LINE) or .gif (WeChat)")
     parser.add_argument("--platform", choices=("line", "wechat"), default="line")
-    parser.add_argument("--frames", type=int, choices=(4, 6, 8), default=8)
+    parser.add_argument("--frames", type=int, default=8, help="frame count (2–15)")
     parser.add_argument("--layout", choices=("auto", "horizontal", "vertical", "grid"), default="auto")
     parser.add_argument("--duration", type=int, default=200, help="milliseconds per frame")
     parser.add_argument("--remove-background", action="store_true")

@@ -46,16 +46,17 @@ def test_queue_operations_and_order() -> None:
     assert queue.jobs == []
 
 
-@pytest.mark.parametrize("count", [4, 6, 8])
+@pytest.mark.parametrize("count", [2, 4, 5, 6, 7, 8, 15])
 def test_supported_job_counts(tmp_path: Path, count: int) -> None:
     job = AnimationJob("valid", make_frames(tmp_path, count))
     assert job.frame_count == count
     assert job.validation_errors() == []
 
 
-def test_invalid_frame_count(tmp_path: Path) -> None:
-    job = AnimationJob("invalid", make_frames(tmp_path, 5))
-    assert job.validation_errors() == ["frame_count:5"]
+@pytest.mark.parametrize("count", [0, 1, 16])
+def test_invalid_frame_count(tmp_path: Path, count: int) -> None:
+    job = AnimationJob("invalid", make_frames(tmp_path, count))
+    assert job.validation_errors() == [f"frame_count:{count}"]
 
 
 def test_text_disabled_leaves_frames_unchanged(tmp_path: Path) -> None:
@@ -127,7 +128,7 @@ def test_batch_export_order_and_mixed_platforms(tmp_path: Path) -> None:
 
 def test_batch_validates_all_jobs_before_writing(tmp_path: Path) -> None:
     valid = AnimationJob("valid", make_frames(tmp_path / "valid", 4))
-    invalid = AnimationJob("invalid", make_frames(tmp_path / "invalid", 3))
+    invalid = AnimationJob("invalid", make_frames(tmp_path / "invalid", 1))
     with pytest.raises(ValueError, match="invalid_jobs:2"):
         export_jobs([valid, invalid], tmp_path / "output")
     assert not (tmp_path / "output").exists()
@@ -187,6 +188,24 @@ def test_background_validation_count_ranges_and_missing(tmp_path: Path) -> None:
     assert "background_count:6" in errors
     assert "missing_background:6" in errors
     assert "background_range:6" in errors
+
+
+def test_five_frame_background_range_uses_actual_group_count(tmp_path: Path) -> None:
+    paths = make_frames(tmp_path / "frames", 5)
+    background = tmp_path / "background.png"; Image.new("RGB", (20, 20)).save(background)
+    assert AnimationJob("valid", paths, backgrounds=[BackgroundEntry(background, 1, 5)]).validation_errors() == []
+    assert "background_range:1" in AnimationJob(
+        "invalid", paths, backgrounds=[BackgroundEntry(background, 1, 6)]
+    ).validation_errors()
+
+
+@pytest.mark.parametrize("count", [5, 7])
+@pytest.mark.parametrize("platform", ["line", "wechat"])
+def test_arbitrary_frame_count_exports_exact_source_total(tmp_path: Path, count: int, platform: str) -> None:
+    paths = make_frames(tmp_path / f"{platform}-{count}", count)
+    output = export_jobs([AnimationJob("custom", paths, platform=platform)], tmp_path / "out")[0]
+    with Image.open(output) as animation:
+        assert animation.n_frames == count
 
 
 @pytest.mark.parametrize("platform", ["line", "wechat"])

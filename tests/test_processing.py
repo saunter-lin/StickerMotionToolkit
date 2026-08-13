@@ -12,6 +12,8 @@ from app.workers import pipeline
 COLORS = [
     (255, 0, 0, 255), (0, 255, 0, 255), (0, 0, 255, 255), (255, 255, 0, 255),
     (255, 0, 255, 255), (0, 255, 255, 255), (128, 0, 0, 255), (0, 128, 0, 255),
+    (0, 0, 128, 255), (128, 128, 0, 255), (128, 0, 128, 255), (0, 128, 128, 255),
+    (192, 64, 0, 255), (64, 192, 0, 255), (0, 64, 192, 255),
 ]
 
 
@@ -22,7 +24,7 @@ def horizontal_sheet(count: int) -> Image.Image:
     return sheet
 
 
-@pytest.mark.parametrize("count", [4, 6, 8])
+@pytest.mark.parametrize("count", [2, 4, 5, 6, 7, 8, 15])
 def test_splits_supported_horizontal_frame_counts(count: int) -> None:
     frames = split_sheet(horizontal_sheet(count), count, "horizontal")
     assert len(frames) == count
@@ -42,7 +44,7 @@ def test_grid_split_uses_reading_order() -> None:
 
 def test_invalid_count_and_indivisible_sheet_are_rejected() -> None:
     with pytest.raises(ValueError, match="frame_count"):
-        split_sheet(horizontal_sheet(4), 5)
+        split_sheet(horizontal_sheet(4), 1)
     with pytest.raises(ValueError, match="not evenly divisible"):
         split_sheet(Image.new("RGBA", (41, 10)), 4, "horizontal")
 
@@ -74,3 +76,26 @@ def test_ordered_frame_files_reach_exporter_in_exact_order(tmp_path, monkeypatch
     monkeypatch.setattr(pipeline, "export_animation", fake_export)
     pipeline.process_frame_files(paths, tmp_path / "ordered.png", "line")
     assert captured == {"reds": [40, 10, 30, 20], "platform": "line"}
+
+
+@pytest.mark.parametrize("count", [2, 4, 5, 6, 7, 8, 15])
+def test_ordered_frame_pipeline_accepts_arbitrary_counts(tmp_path, monkeypatch, count: int) -> None:
+    paths = []
+    for index in range(count):
+        path = tmp_path / f"frame{index}.png"
+        Image.new("RGBA", (4, 4), (index, 0, 0, 255)).save(path)
+        paths.append(path)
+    captured = []
+    monkeypatch.setattr(pipeline, "export_animation", lambda animation, platform, destination: captured.extend(animation.frames) or destination)
+    pipeline.process_frame_files(paths, tmp_path / "ordered.gif", "wechat")
+    assert len(captured) == count
+
+
+def test_ordered_frame_pipeline_rejects_more_than_fifteen(tmp_path) -> None:
+    paths = []
+    for index in range(16):
+        path = tmp_path / f"frame{index}.png"
+        Image.new("RGBA", (4, 4)).save(path)
+        paths.append(path)
+    with pytest.raises(ValueError, match="between 2 and 15"):
+        pipeline.process_frame_files(paths, tmp_path / "too-many.gif", "wechat")
