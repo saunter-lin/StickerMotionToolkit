@@ -83,7 +83,7 @@ class StickerMotionWindow(QMainWindow):
         self.job_name_edit, self.output_filename_edit = QLineEdit(), QLineEdit()
         self.platform_combo = QComboBox(); self.platform_combo.addItem("WeChat (GIF)", "wechat"); self.platform_combo.addItem("LINE (APNG)", "line")
         self.frame_count_combo = QComboBox(); [self.frame_count_combo.addItem(str(count), count) for count in (4, 6, 8)]; self.frame_count_combo.setCurrentIndex(2); self.frame_count_combo.setVisible(False)
-        self.duration_spin = QSpinBox(); self.duration_spin.setRange(10, 10000); self.duration_spin.setValue(250); self.duration_spin.setSuffix(" ms")
+        self.duration_spin = QSpinBox(); self.duration_spin.setRange(10, 10000); self.duration_spin.setValue(220); self.duration_spin.setSuffix(" ms")
         self.frame_list = QListWidget(); self.frame_list.setMinimumHeight(110); self.frame_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding); self.frame_list.setViewMode(QListWidget.ViewMode.IconMode); self.frame_list.setFlow(QListWidget.Flow.LeftToRight); self.frame_list.setWrapping(True); self.frame_list.setResizeMode(QListWidget.ResizeMode.Adjust); self.frame_list.setMovement(QListWidget.Movement.Static); self.frame_list.setGridSize(QSize(150, 30)); self.frame_list.setUniformItemSizes(True)
         self.frame_count_label = QLabel()
         self.add_frames_button, self.move_up_button, self.move_down_button = QPushButton(), QPushButton(), QPushButton()

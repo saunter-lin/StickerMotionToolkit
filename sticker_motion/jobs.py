@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 SUPPORTED_FRAME_COUNTS = (4, 6, 8)
-DEFAULT_GROUP_DURATION_MS = 250
+DEFAULT_GROUP_DURATION_MS = 220
 
 
 @dataclass

@@ -142,7 +142,7 @@ def test_v12_text_defaults_are_backward_compatible() -> None:
 
 def test_default_platform_is_wechat() -> None:
     assert AnimationJob("default").platform == "wechat"
-    assert AnimationJob("default").duration_ms == 250
+    assert AnimationJob("default").duration_ms == 220
 
 
 def test_explicit_legacy_duration_remains_unchanged() -> None:

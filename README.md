@@ -51,7 +51,7 @@ The processing pipeline supports 4, 6, or 8 frames and branches only at export:
 - Final layer order is Background → Animation Frame → Text Overlay
 - Animation frames use a wrapping multi-column display without changing playback order
 - Preview animates the fully composited group at its configured frame duration
-- New groups default to 250 ms per frame; existing explicit durations such as 200 ms remain unchanged
+- New groups default to 220 ms per frame; existing explicit durations such as 200 ms remain unchanged
 
 ## Shared features
 
@@ -59,7 +59,7 @@ The processing pipeline supports 4, 6, or 8 frames and branches only at export:
 - 4, 6, or 8-frame animations
 - Natural filename sorting and manual playback-order management
 - Move Up, Move Down, Remove selected, and Clear all controls
-- New GUI groups default to 250 ms per frame; duration remains configurable and the CLI default remains 200 ms
+- New GUI groups default to 220 ms per frame; duration remains configurable and the CLI default remains 200 ms
 - WeChat GIF is the default for new jobs; LINE APNG remains available from the same output-format menu
 - Optional solid-background removal remains available through the source CLI and processing API for compatibility; it is not shown in the v1.1 GUI
 - LINE APNG and WeChat GIF export

@@ -30,7 +30,7 @@ def test_window_defaults_match_processing_defaults(app, settings) -> None:
     assert [window.platform_combo.itemData(index) for index in range(2)] == ["wechat", "line"]
     assert [window.platform_combo.itemText(index) for index in range(2)] == ["WeChat (GIF)", "LINE (APNG)"]
     assert window.frame_list.count() == 0
-    assert window.duration_spin.value() == 250
+    assert window.duration_spin.value() == 220
     assert window.font_combo.currentData() == "Iansui"
     assert not hasattr(window, "background_check")
     assert window.language == "zh-TW"
