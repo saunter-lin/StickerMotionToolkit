@@ -7,19 +7,19 @@ import sys
 from pathlib import Path
 
 from PIL.ImageQt import ImageQt
-from PySide6.QtCore import QObject, QSettings, Qt, QThread, Signal
+from PySide6.QtCore import QObject, QSize, QSettings, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QColorDialog, QComboBox, QFileDialog, QFormLayout,
     QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMainWindow,
     QMessageBox, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QSpinBox,
-    QSplitter, QVBoxLayout, QWidget,
+    QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from app.ui.i18n import DEFAULT_LANGUAGE, LANGUAGES, localized_error, translate
 from app.windows_identity import configure_windows_app_identity
 from sticker_motion.batch import export_jobs, prepare_job_frames
-from sticker_motion.jobs import AnimationJob, AnimationQueue
+from sticker_motion.jobs import AnimationJob, AnimationQueue, BackgroundEntry
 from sticker_motion.fonts import (
     BUNDLED_FONTS, DEFAULT_FONT, LOCAL_FONT_ACTION, SYSTEM_SEPARATOR,
     available_font_families, register_local_font, valid_font_family,
@@ -53,6 +53,9 @@ class StickerMotionWindow(QMainWindow):
         self.queue = AnimationQueue()
         self._loading = False
         self._thread: QThread | None = None
+        self._preview_frames: list[QPixmap] = []
+        self._preview_index = 0
+        self.preview_timer = QTimer(self); self.preview_timer.timeout.connect(self._advance_preview)
         icon = Path(__file__).resolve().parents[2] / "assets" / "icon" / "sticker-motion-toolkit-256.png"
         if icon.exists(): self.setWindowIcon(QIcon(str(icon)))
         self.setMinimumSize(700, 420)
@@ -80,14 +83,18 @@ class StickerMotionWindow(QMainWindow):
         self.job_name_edit, self.output_filename_edit = QLineEdit(), QLineEdit()
         self.platform_combo = QComboBox(); self.platform_combo.addItem("WeChat (GIF)", "wechat"); self.platform_combo.addItem("LINE (APNG)", "line")
         self.frame_count_combo = QComboBox(); [self.frame_count_combo.addItem(str(count), count) for count in (4, 6, 8)]; self.frame_count_combo.setCurrentIndex(2); self.frame_count_combo.setVisible(False)
-        self.duration_spin = QSpinBox(); self.duration_spin.setRange(10, 10000); self.duration_spin.setValue(200); self.duration_spin.setSuffix(" ms")
-        self.frame_list = QListWidget(); self.frame_list.setMinimumHeight(150); self.frame_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.duration_spin = QSpinBox(); self.duration_spin.setRange(10, 10000); self.duration_spin.setValue(250); self.duration_spin.setSuffix(" ms")
+        self.frame_list = QListWidget(); self.frame_list.setMinimumHeight(110); self.frame_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding); self.frame_list.setViewMode(QListWidget.ViewMode.IconMode); self.frame_list.setFlow(QListWidget.Flow.LeftToRight); self.frame_list.setWrapping(True); self.frame_list.setResizeMode(QListWidget.ResizeMode.Adjust); self.frame_list.setMovement(QListWidget.Movement.Static); self.frame_list.setGridSize(QSize(150, 30)); self.frame_list.setUniformItemSizes(True)
         self.frame_count_label = QLabel()
         self.add_frames_button, self.move_up_button, self.move_down_button = QPushButton(), QPushButton(), QPushButton()
         self.remove_frame_button, self.clear_frames_button = QPushButton(), QPushButton()
         frame_buttons = QGridLayout()
         for index, button in enumerate((self.add_frames_button, self.move_up_button, self.move_down_button, self.remove_frame_button, self.clear_frames_button)):
             frame_buttons.addWidget(button, index // 3, index % 3)
+
+        self.background_label = QLabel(); self.add_background_button = QPushButton()
+        self.background_table = QTableWidget(0, 4); self.background_table.setMinimumHeight(110); self.background_table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); self.background_table.verticalHeader().setVisible(False); self.background_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows); self.background_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection); self.background_table.horizontalHeader().setStretchLastSection(False); self.background_table.horizontalHeader().setSectionResizeMode(0, self.background_table.horizontalHeader().ResizeMode.Stretch); self.background_table.horizontalHeader().setSectionResizeMode(1, self.background_table.horizontalHeader().ResizeMode.ResizeToContents); self.background_table.horizontalHeader().setSectionResizeMode(2, self.background_table.horizontalHeader().ResizeMode.ResizeToContents); self.background_table.horizontalHeader().setSectionResizeMode(3, self.background_table.horizontalHeader().ResizeMode.ResizeToContents)
+        background_header = QHBoxLayout(); background_header.addWidget(self.background_label); background_header.addStretch(); background_header.addWidget(self.add_background_button)
 
         self.text_check, self.text_edit = QCheckBox(), QLineEdit()
         self.font_combo = QComboBox(); self._populate_font_combo()
@@ -103,13 +110,16 @@ class StickerMotionWindow(QMainWindow):
         self.preview_label = QLabel(); self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter); self.preview_label.setMinimumSize(260, 180); self.preview_label.setStyleSheet("background:#222; color:#aaa;")
 
         self.form = QFormLayout()
+        self.text_form = QFormLayout()
         self.form_labels: list[QLabel] = []
-        for widget in (self.language_combo, self.job_name_edit, self.platform_combo, self.duration_spin, self.output_filename_edit, self.text_check, self.text_edit, self.font_combo, self.font_size_spin, self.text_color_button, self.stroke_color_button, self.stroke_width_spin, self.text_direction_combo, self.rotation_spin, self.vertical_combo, self.horizontal_combo, self.x_offset_spin, self.y_offset_spin, self.preview_label):
-            label = QLabel(); label.setBuddy(widget); self.form_labels.append(label); self.form.addRow(label, widget)
+        editor_fields = (self.language_combo, self.job_name_edit, self.platform_combo, self.duration_spin, self.output_filename_edit, self.text_check, self.text_edit, self.font_combo, self.font_size_spin, self.text_color_button, self.stroke_color_button, self.stroke_width_spin, self.text_direction_combo, self.rotation_spin, self.vertical_combo, self.horizontal_combo, self.x_offset_spin, self.y_offset_spin, self.preview_label)
+        for index, widget in enumerate(editor_fields):
+            label = QLabel(); label.setBuddy(widget); self.form_labels.append(label); (self.form if index < 5 else self.text_form).addRow(label, widget)
         header = QHBoxLayout(); self.frame_list_label = QLabel(); header.addWidget(self.frame_list_label); header.addStretch(); header.addWidget(self.frame_count_label)
         self.form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         self.form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
-        editor = QWidget(); editor_layout = QVBoxLayout(editor); editor_layout.addLayout(self.form); editor_layout.addLayout(header); editor_layout.addWidget(self.frame_list, 1); editor_layout.addLayout(frame_buttons)
+        self.text_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow); self.text_form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
+        editor = QWidget(); editor_layout = QVBoxLayout(editor); editor_layout.addLayout(self.form); editor_layout.addLayout(header); editor_layout.addWidget(self.frame_list); editor_layout.addLayout(frame_buttons); editor_layout.addLayout(background_header); editor_layout.addWidget(self.background_table); editor_layout.addLayout(self.text_form)
         splitter = QSplitter(); splitter.addWidget(queue_panel); splitter.addWidget(editor); splitter.setStretchFactor(1, 1)
         self.content_widget = QWidget(); content_layout = QVBoxLayout(self.content_widget); content_layout.addWidget(splitter, 1)
         bottom = QHBoxLayout(); self.output_folder_edit = QLineEdit(); self.output_browse = QPushButton(); self.export_button = QPushButton(); self.export_button.setDefault(True)
@@ -124,6 +134,7 @@ class StickerMotionWindow(QMainWindow):
         self.add_job_button.clicked.connect(self._add_job); self.remove_job_button.clicked.connect(self._remove_job); self.duplicate_job_button.clicked.connect(self._duplicate_job)
         self.clear_jobs_button.clicked.connect(self._clear_jobs); self.move_job_up_button.clicked.connect(lambda: self._move_job(-1)); self.move_job_down_button.clicked.connect(lambda: self._move_job(1))
         self.add_frames_button.clicked.connect(self._choose_frames); self.move_up_button.clicked.connect(self._move_up); self.move_down_button.clicked.connect(self._move_down); self.remove_frame_button.clicked.connect(self._remove_selected); self.clear_frames_button.clicked.connect(self._clear_frames)
+        self.add_background_button.clicked.connect(self._choose_background)
         self.output_browse.clicked.connect(self._choose_output_folder); self.export_button.clicked.connect(self._export)
         self.text_color_button.clicked.connect(lambda: self._choose_color("color")); self.stroke_color_button.clicked.connect(lambda: self._choose_color("stroke_color"))
         self.font_combo.activated.connect(self._font_activated)
@@ -174,7 +185,7 @@ class StickerMotionWindow(QMainWindow):
 
     def _retranslate_ui(self) -> None:
         self.setWindowTitle(self.t("window_title")); self.queue_label.setText(self.t("animation_queue")); self.add_job_button.setText(self.t("add_job")); self.remove_job_button.setText(self.t("remove_job")); self.duplicate_job_button.setText(self.t("duplicate_job")); self.clear_jobs_button.setText(self.t("clear_jobs")); self.move_job_up_button.setText(self.t("move_job_up")); self.move_job_down_button.setText(self.t("move_job_down")); self.export_button.setText(self.t("export_all")); self.output_browse.setText(self.t("browse"))
-        self.text_check.setText(self.t("enabled")); self.add_frames_button.setText(self.t("add_frames")); self.move_up_button.setText(self.t("move_up")); self.move_down_button.setText(self.t("move_down")); self.remove_frame_button.setText(self.t("remove_frame")); self.clear_frames_button.setText(self.t("clear_frames")); self.frame_list_label.setText(self.t("frame_list")); self.preview_label.setToolTip(self.t("preview")); self.text_color_button.setText(self.t("choose_text_color")); self.stroke_color_button.setText(self.t("choose_outline_color"))
+        self.text_check.setText(self.t("enabled")); self.add_frames_button.setText(self.t("add_frames")); self.move_up_button.setText(self.t("move_up")); self.move_down_button.setText(self.t("move_down")); self.remove_frame_button.setText(self.t("remove_frame")); self.clear_frames_button.setText(self.t("clear_frames")); self.frame_list_label.setText(self.t("frame_list")); self.background_label.setText(self.t("background_layer")); self.add_background_button.setText(self.t("add_background")); self.background_table.setHorizontalHeaderLabels((self.t("background_image"), self.t("start_frame"), self.t("end_frame"), self.t("remove"))); self.preview_label.setToolTip(self.t("preview")); self.text_color_button.setText(self.t("choose_text_color")); self.stroke_color_button.setText(self.t("choose_outline_color"))
         local_index = self.font_combo.findData(LOCAL_FONT_ACTION)
         if local_index >= 0: self.font_combo.setItemText(local_index, self.t("choose_local_font"))
         for label, key in zip(self.form_labels, ("language", "job_name", "platform", "duration", "output_filename", "text_overlay", "text_content", "font", "font_size", "text_color", "outline_color", "outline_width", "text_direction", "rotation_angle", "vertical_position", "horizontal_alignment", "x_offset", "y_offset", "preview"), strict=True):
@@ -205,10 +216,10 @@ class StickerMotionWindow(QMainWindow):
     def _load_job(self, row: int) -> None:
         job = self.current_job(); self._loading = True
         enabled = job is not None
-        for widget in (self.job_name_edit, self.platform_combo, self.duration_spin, self.output_filename_edit, self.text_check, self.text_edit, self.font_combo, self.font_size_spin, self.text_color_button, self.stroke_color_button, self.stroke_width_spin, self.text_direction_combo, self.rotation_spin, self.vertical_combo, self.horizontal_combo, self.x_offset_spin, self.y_offset_spin, self.frame_list): widget.setEnabled(enabled)
+        for widget in (self.job_name_edit, self.platform_combo, self.duration_spin, self.output_filename_edit, self.text_check, self.text_edit, self.font_combo, self.font_size_spin, self.text_color_button, self.stroke_color_button, self.stroke_width_spin, self.text_direction_combo, self.rotation_spin, self.vertical_combo, self.horizontal_combo, self.x_offset_spin, self.y_offset_spin, self.frame_list, self.background_table, self.add_background_button): widget.setEnabled(enabled)
         if job:
-            self.job_name_edit.setText(job.name); self.platform_combo.setCurrentIndex(self.platform_combo.findData(job.platform if job.platform in ("wechat", "line") else "wechat")); self.duration_spin.setValue(job.duration_ms); self.output_filename_edit.setText(job.output_filename); s = job.text_overlay; self.text_check.setChecked(s.enabled); self.text_edit.setText(s.text); family = s.font_family if valid_font_family(s.font_family) else DEFAULT_FONT; s.font_family = family; self.font_combo.setCurrentIndex(self.font_combo.findData(family)); self.font_size_spin.setValue(s.font_size); self.stroke_width_spin.setValue(s.stroke_width); self.text_direction_combo.setCurrentIndex(self.text_direction_combo.findData(getattr(s, "text_direction", "horizontal"))); self.rotation_spin.setValue(getattr(s, "rotation_angle", 0)); self.vertical_combo.setCurrentIndex(self.vertical_combo.findData(s.vertical_position)); self.horizontal_combo.setCurrentIndex(self.horizontal_combo.findData(s.horizontal_alignment)); self.x_offset_spin.setValue(s.x_offset); self.y_offset_spin.setValue(s.y_offset); self._populate_frames()
-        else: self.frame_list.clear(); self.preview_label.clear()
+            self.job_name_edit.setText(job.name); self.platform_combo.setCurrentIndex(self.platform_combo.findData(job.platform if job.platform in ("wechat", "line") else "wechat")); self.duration_spin.setValue(job.duration_ms); self.output_filename_edit.setText(job.output_filename); s = job.text_overlay; self.text_check.setChecked(s.enabled); self.text_edit.setText(s.text); family = s.font_family if valid_font_family(s.font_family) else DEFAULT_FONT; s.font_family = family; self.font_combo.setCurrentIndex(self.font_combo.findData(family)); self.font_size_spin.setValue(s.font_size); self.stroke_width_spin.setValue(s.stroke_width); self.text_direction_combo.setCurrentIndex(self.text_direction_combo.findData(getattr(s, "text_direction", "horizontal"))); self.rotation_spin.setValue(getattr(s, "rotation_angle", 0)); self.vertical_combo.setCurrentIndex(self.vertical_combo.findData(s.vertical_position)); self.horizontal_combo.setCurrentIndex(self.horizontal_combo.findData(s.horizontal_alignment)); self.x_offset_spin.setValue(s.x_offset); self.y_offset_spin.setValue(s.y_offset); self._populate_frames(); self._populate_backgrounds()
+        else: self.frame_list.clear(); self.background_table.setRowCount(0); self.preview_label.clear()
         self._loading = False; self._update_frame_count(); self._update_controls(); self._update_preview()
 
     def _save_job(self) -> None:
@@ -244,16 +255,59 @@ class StickerMotionWindow(QMainWindow):
         if job and row >= 0: job.frame_paths.pop(row); self._populate_frames(); self._refresh_jobs(self.job_list.currentRow()); self._update_preview()
     def _clear_frames(self) -> None:
         if job := self.current_job(): job.frame_paths.clear(); self._populate_frames(); self._refresh_jobs(self.job_list.currentRow()); self._update_preview()
+
+    def _choose_background(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, self.t("choose_background"), "", self.t("images_filter"))
+        if path: self.add_background_path(path)
+
+    def add_background_path(self, path: str) -> None:
+        job = self.current_job()
+        if not job or not Path(path).is_file(): return
+        if not job.frame_count: self._set_status(self.t("background_requires_frames"), True); return
+        if len(job.backgrounds) >= job.frame_count: self._set_status(self.t("background_limit", count=job.frame_count), True); return
+        job.backgrounds.append(BackgroundEntry(Path(path), 1, job.frame_count)); self._populate_backgrounds(); self._refresh_jobs(self.job_list.currentRow()); self._update_preview()
+
+    def _populate_backgrounds(self) -> None:
+        self.background_table.blockSignals(True); self.background_table.setRowCount(0)
+        if job := self.current_job():
+            for row, entry in enumerate(job.backgrounds):
+                self.background_table.insertRow(row)
+                item = QTableWidgetItem(entry.image_path.name); item.setData(Qt.ItemDataRole.UserRole, str(entry.image_path)); item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable); self.background_table.setItem(row, 0, item)
+                for column, value in ((1, entry.start_frame), (2, entry.end_frame)):
+                    spin = QSpinBox(); spin.setRange(1, max(1, job.frame_count)); spin.setValue(value); spin.valueChanged.connect(lambda _, r=row: self._background_range_changed(r)); self.background_table.setCellWidget(row, column, spin)
+                remove = QPushButton(self.t("remove")); remove.clicked.connect(lambda _, r=row: self._remove_background(r)); self.background_table.setCellWidget(row, 3, remove)
+        self.background_table.blockSignals(False)
+
+    def _background_range_changed(self, row: int) -> None:
+        job = self.current_job()
+        if self._loading or not job or not (0 <= row < len(job.backgrounds)): return
+        start = self.background_table.cellWidget(row, 1).value(); end = self.background_table.cellWidget(row, 2).value()
+        if start > end:
+            sender = self.sender()
+            if sender is self.background_table.cellWidget(row, 1): end = start; self.background_table.cellWidget(row, 2).setValue(end)
+            else: start = end; self.background_table.cellWidget(row, 1).setValue(start)
+        job.backgrounds[row].start_frame, job.backgrounds[row].end_frame = start, end; self._refresh_jobs(self.job_list.currentRow()); self._update_preview()
+
+    def _remove_background(self, row: int) -> None:
+        job = self.current_job()
+        if job and 0 <= row < len(job.backgrounds): job.backgrounds.pop(row); self._populate_backgrounds(); self._refresh_jobs(self.job_list.currentRow()); self._update_preview()
     def _update_frame_count(self) -> None: self.frame_count_label.setText(self.t("frame_count", count=self.frame_list.count()))
     def _update_controls(self) -> None:
         jr = self.job_list.currentRow(); fr = self.frame_list.currentRow(); self.remove_job_button.setEnabled(jr >= 0); self.duplicate_job_button.setEnabled(jr >= 0); self.move_job_up_button.setEnabled(jr > 0); self.move_job_down_button.setEnabled(0 <= jr < len(self.queue.jobs) - 1); self.clear_jobs_button.setEnabled(bool(self.queue.jobs)); self.move_up_button.setEnabled(fr > 0); self.move_down_button.setEnabled(0 <= fr < self.frame_list.count() - 1); self.remove_frame_button.setEnabled(fr >= 0); self.clear_frames_button.setEnabled(self.frame_list.count() > 0); self._update_frame_count()
 
     def _update_preview(self) -> None:
+        self.preview_timer.stop(); self._preview_frames = []; self._preview_index = 0
         job = self.current_job()
         if not job or not job.frame_paths or not job.frame_paths[0].is_file(): self.preview_label.setPixmap(QPixmap()); self.preview_label.setText(self.t("preview")); return
-        try: frame, _ = prepare_job_frames(AnimationJob(job.name, [job.frame_paths[0]], text_overlay=job.text_overlay))
+        try: frames, _ = prepare_job_frames(job)
         except Exception: return
-        pixmap = QPixmap.fromImage(ImageQt(frame[0])); self.preview_label.setPixmap(pixmap.scaled(420, 260, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        self._preview_frames = [QPixmap.fromImage(ImageQt(frame)).scaled(420, 260, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation) for frame in frames]
+        self.preview_label.setText(""); self.preview_label.setPixmap(self._preview_frames[0])
+        if len(self._preview_frames) > 1: self.preview_timer.start(job.duration_ms)
+
+    def _advance_preview(self) -> None:
+        if not self._preview_frames: return
+        self._preview_index = (self._preview_index + 1) % len(self._preview_frames); self.preview_label.setPixmap(self._preview_frames[self._preview_index])
     def _choose_output_folder(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, self.t("choose_output_folder"), self.output_folder_edit.text())
         if folder: self.output_folder_edit.setText(folder)

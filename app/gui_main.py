@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QApplication
 from app.ui.desktop import launch
 from app.workers.pipeline import process_frame_files
 from sticker_motion.batch import export_jobs
-from sticker_motion.jobs import AnimationJob, TextOverlaySettings
+from sticker_motion.jobs import AnimationJob, BackgroundEntry, TextOverlaySettings
 
 
 def packaged_self_test(output_dir: Path) -> int:
@@ -19,18 +19,21 @@ def packaged_self_test(output_dir: Path) -> int:
     app = QApplication.instance() or QApplication([])
     output_dir.mkdir(parents=True, exist_ok=True)
     frame_paths = []
-    for index, color in enumerate(("red", "green", "blue", "yellow"), 1):
+    for index, color in enumerate(((255, 0, 0, 180), (0, 255, 0, 180), (0, 0, 255, 180), (255, 255, 0, 180)), 1):
         path = output_dir / f"frame{index}.png"
         Image.new("RGBA", (32, 32), color).save(path)
         frame_paths.append(path)
+    background_path = output_dir / "background.png"
+    Image.new("RGB", (64, 32), (20, 30, 100)).save(background_path)
+    backgrounds = [BackgroundEntry(background_path, 2, 4)]
     jobs = [
-        AnimationJob("line-text", frame_paths, platform="line", output_filename="line", text_overlay=TextOverlaySettings(enabled=True, text="測試", font_size=16, text_direction="vertical", rotation_angle=15)),
-        AnimationJob("wechat-text", frame_paths, platform="wechat", output_filename="wechat", text_overlay=TextOverlaySettings(enabled=True, text="Test", font_size=16, rotation_angle=-15)),
+        AnimationJob("line-text", frame_paths, duration_ms=250, platform="line", output_filename="line", backgrounds=backgrounds, text_overlay=TextOverlaySettings(enabled=True, text="測試", font_size=16, text_direction="vertical", rotation_angle=15)),
+        AnimationJob("wechat-text", frame_paths, duration_ms=250, platform="wechat", output_filename="wechat", backgrounds=backgrounds, text_overlay=TextOverlaySettings(enabled=True, text="Test", font_size=16, rotation_angle=-15)),
     ]
     line_path, wechat_path = export_jobs(jobs, output_dir)
     for path, expected_format in ((line_path, "PNG"), (wechat_path, "GIF")):
         with Image.open(path) as animation:
-            if animation.format != expected_format or animation.n_frames != 4:
+            if animation.format != expected_format or animation.n_frames != 4 or animation.info.get("duration") != 250:
                 raise RuntimeError(f"invalid packaged export: {path}")
     print(f"PACKAGED_SELF_TEST_OK {line_path} {wechat_path}")
     app.quit()

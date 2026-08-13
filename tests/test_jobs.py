@@ -9,7 +9,8 @@ pytest.importorskip("PySide6")
 from PySide6.QtWidgets import QApplication
 
 from sticker_motion.batch import export_jobs, prepare_job_frames, unique_output_path
-from sticker_motion.jobs import AnimationJob, AnimationQueue, TextOverlaySettings
+from sticker_motion.jobs import AnimationJob, AnimationQueue, BackgroundEntry, TextOverlaySettings
+from sticker_motion.background_layer import apply_backgrounds, scale_to_cover
 from sticker_motion.text_overlay import overlay_position, render_text_layer
 
 
@@ -141,6 +142,66 @@ def test_v12_text_defaults_are_backward_compatible() -> None:
 
 def test_default_platform_is_wechat() -> None:
     assert AnimationJob("default").platform == "wechat"
+    assert AnimationJob("default").duration_ms == 250
+
+
+def test_explicit_legacy_duration_remains_unchanged() -> None:
+    assert AnimationJob("legacy", duration_ms=200).duration_ms == 200
+
+
+def test_background_scale_to_cover_center_crops() -> None:
+    source = Image.new("RGB", (200, 100), "red")
+    result = scale_to_cover(source, (100, 100))
+    assert result.size == (100, 100)
+    assert result.getpixel((50, 50)) == (255, 0, 0, 255)
+
+
+def test_background_ranges_overlap_in_list_order_and_leave_unassigned_transparent(tmp_path: Path) -> None:
+    red = tmp_path / "red.png"; blue = tmp_path / "blue.png"
+    Image.new("RGBA", (20, 20), "red").save(red); Image.new("RGBA", (20, 20), (0, 0, 255, 128)).save(blue)
+    transparent = Image.new("RGBA", (20, 20))
+    entries = [BackgroundEntry(red, 2, 4), BackgroundEntry(blue, 3, 3)]
+    assert apply_backgrounds(transparent, entries, 1).getbbox() is None
+    assert apply_backgrounds(transparent, entries, 2).getpixel((10, 10)) == (255, 0, 0, 255)
+    overlap = apply_backgrounds(transparent, entries, 3).getpixel((10, 10))
+    assert overlap[2] > 0 and overlap[0] > 0 and overlap[3] == 255
+
+
+def test_background_frame_text_layer_order(tmp_path: Path) -> None:
+    background = tmp_path / "background.png"; frame_path = tmp_path / "frame.png"
+    Image.new("RGB", (120, 80), "blue").save(background)
+    Image.new("RGBA", (120, 80), (255, 0, 0, 128)).save(frame_path)
+    settings = TextOverlaySettings(enabled=True, text="TOP", color="#ffffff", stroke_width=0, vertical_position="center")
+    job = AnimationJob("layers", [frame_path] * 4, backgrounds=[BackgroundEntry(background, 1, 4)], text_overlay=settings)
+    frames, _ = prepare_job_frames(job)
+    assert frames[0].getpixel((0, 0))[3] == 255
+    background_and_frame = apply_backgrounds(Image.open(frame_path), job.backgrounds, 1)
+    assert ImageChops.difference(frames[0].convert("RGB"), background_and_frame.convert("RGB")).getbbox() is not None
+
+
+def test_background_validation_count_ranges_and_missing(tmp_path: Path) -> None:
+    paths = make_frames(tmp_path / "frames", 4)
+    valid_bg = tmp_path / "bg.png"; Image.new("RGB", (20, 20)).save(valid_bg)
+    too_many = [BackgroundEntry(valid_bg, 1, 4) for _ in range(5)]
+    errors = AnimationJob("invalid", paths, backgrounds=too_many + [BackgroundEntry(tmp_path / "missing.png", 0, 5)]).validation_errors()
+    assert "background_count:6" in errors
+    assert "missing_background:6" in errors
+    assert "background_range:6" in errors
+
+
+@pytest.mark.parametrize("platform", ["line", "wechat"])
+def test_background_ranges_export_without_changing_frame_order(tmp_path: Path, platform: str) -> None:
+    paths = make_frames(tmp_path / platform, 4, transparent=True)
+    for index, path in enumerate(paths):
+        with Image.open(path) as source:
+            frame = source.convert("RGBA")
+        frame.putpixel((index, index), (255, index * 40, 0, 255)); frame.save(path)
+    background = tmp_path / f"{platform}-bg.png"; Image.new("RGB", (200, 80), "green").save(background)
+    job = AnimationJob("range", paths, platform=platform, duration_ms=250, backgrounds=[BackgroundEntry(background, 2, 3)])
+    output = export_jobs([job], tmp_path / "out")[0]
+    with Image.open(output) as animation:
+        assert animation.n_frames == 4
+        assert animation.info.get("duration") == 250
 
 
 @pytest.mark.parametrize("text,direction", [("你好", "horizontal"), ("你好", "vertical"), ("Test", "horizontal"), ("Test", "vertical")])

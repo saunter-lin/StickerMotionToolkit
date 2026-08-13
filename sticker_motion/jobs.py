@@ -7,6 +7,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 SUPPORTED_FRAME_COUNTS = (4, 6, 8)
+DEFAULT_GROUP_DURATION_MS = 250
+
+
+@dataclass
+class BackgroundEntry:
+    image_path: Path
+    start_frame: int = 1
+    end_frame: int = 1
+
+    def applies_to(self, frame_number: int) -> bool:
+        return self.start_frame <= frame_number <= self.end_frame
 
 
 @dataclass
@@ -30,12 +41,13 @@ class TextOverlaySettings:
 class AnimationJob:
     name: str
     frame_paths: list[Path] = field(default_factory=list)
-    duration_ms: int = 200
+    duration_ms: int = DEFAULT_GROUP_DURATION_MS
     platform: str = "wechat"
     remove_background: bool = False
     background_tolerance: int = 0
     output_filename: str = ""
     text_overlay: TextOverlaySettings = field(default_factory=TextOverlaySettings)
+    backgrounds: list[BackgroundEntry] = field(default_factory=list)
     status: str = "ready"
     status_message: str = ""
 
@@ -62,6 +74,13 @@ class AnimationJob:
         missing = [path for path in self.frame_paths if not Path(path).is_file()]
         if missing:
             errors.append(f"missing_frames:{len(missing)}")
+        if len(self.backgrounds) > self.frame_count:
+            errors.append(f"background_count:{len(self.backgrounds)}")
+        for index, background in enumerate(self.backgrounds, 1):
+            if not Path(background.image_path).is_file():
+                errors.append(f"missing_background:{index}")
+            if not (1 <= background.start_frame <= background.end_frame <= self.frame_count):
+                errors.append(f"background_range:{index}")
         return errors
 
     def duplicate(self, name: str | None = None) -> "AnimationJob":

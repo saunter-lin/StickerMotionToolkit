@@ -9,6 +9,7 @@ from PIL import Image
 
 from .animation import build_animation
 from .background import remove_background
+from .background_layer import apply_backgrounds
 from .export import export_animation
 from .jobs import AnimationJob
 from .text_overlay import apply_text_overlay
@@ -29,11 +30,12 @@ def unique_output_path(folder: Path, filename: str) -> Path:
 def prepare_job_frames(job: AnimationJob) -> tuple[list[Image.Image], bool]:
     frames: list[Image.Image] = []
     font_available = True
-    for path in job.frame_paths:
+    for frame_number, path in enumerate(job.frame_paths, 1):
         with Image.open(path) as source:
             frame = source.convert("RGBA")
         if job.remove_background:
             frame = remove_background(frame, job.background_tolerance)
+        frame = apply_backgrounds(frame, job.backgrounds, frame_number)
         frame, available = apply_text_overlay(frame, job.text_overlay)
         font_available = font_available and available
         frames.append(frame)

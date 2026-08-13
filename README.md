@@ -43,13 +43,23 @@ The processing pipeline supports 4, 6, or 8 frames and branches only at export:
 - Preview and final APNG/GIF export share the same text-rendering implementation
 - Windows application identity uses the stable AppUserModelID `Saunter.StickerMotionToolkit`
 
+### v1.3 development
+
+- Group-based Background Layer entries with independent start/end frame ranges
+- Multiple still backgrounds can overlap; list order defines bottom-to-top precedence
+- Backgrounds use aspect-preserving Scale to Cover with center crop
+- Final layer order is Background → Animation Frame → Text Overlay
+- Animation frames use a wrapping multi-column display without changing playback order
+- Preview animates the fully composited group at its configured frame duration
+- New groups default to 250 ms per frame; existing explicit durations such as 200 ms remain unchanged
+
 ## Shared features
 
 - Individual PNG frame input in the GUI
 - 4, 6, or 8-frame animations
 - Natural filename sorting and manual playback-order management
 - Move Up, Move Down, Remove selected, and Clear all controls
-- Default 200 ms duration per frame, configurable in the GUI and CLI
+- New GUI groups default to 250 ms per frame; duration remains configurable and the CLI default remains 200 ms
 - WeChat GIF is the default for new jobs; LINE APNG remains available from the same output-format menu
 - Optional solid-background removal remains available through the source CLI and processing API for compatibility; it is not shown in the v1.1 GUI
 - LINE APNG and WeChat GIF export
@@ -78,7 +88,11 @@ Select 4, 6, or 8 individual PNG frames. Files initially use natural filename or
 
 The desktop window is freely resizable. Its content expands horizontally and scrolls vertically when height is limited, keeping every control accessible across all three languages. The selected language is remembered through Qt platform settings.
 
-The v1.2 job editor clearly labels interface language, job name, output format, frame duration, output filename, all text settings, positioning, and offsets. Text may be horizontal or stacked vertically, then rotated by any whole-number angle from -180° to +180°. Positive X moves right, negative X moves left, positive Y moves down, and negative Y moves up. The first-frame preview uses the same renderer as final export.
+The job editor clearly labels interface language, job name, output format, frame duration, output filename, all text settings, positioning, and offsets. Text may be horizontal or stacked vertically, then rotated by any whole-number angle from -180° to +180°. Positive X moves right, negative X moves left, positive Y moves down, and negative Y moves up. The animated preview uses the same frame-composition path as final export.
+
+Backgrounds belong to one animation group. Add already prepared still images below the Animation Frames section, then set each entry's inclusive start and end frame. Frames outside every background range retain their original transparency. Background count cannot exceed the group's animation-frame count. The toolkit deliberately does not include a background grid cutter; prepare or split background sheets in Sticker Toolkit first.
+
+Plan the complete composition before generating character frames. If a background or text will be added, leave suitable visible space around the character—roughly 75% character occupancy is a useful starting point rather than a hard rule. Sky, fireworks, ground effects, scene objects, and text each need intentional room.
 
 The font menu always starts with 芫荽, 粉圓體, and 辰宇落雁體, followed by detected system fonts and **Choose Local Font…**. 芫荽 is the default. Bundled fonts are application resources and are not installed into macOS or Windows. Missing glyphs use the bundled/system fallback chain shared by preview and export. See `THIRD_PARTY_LICENSES.md` for official sources and licenses.
 
@@ -112,7 +126,7 @@ python -m pytest
 
 ## macOS Apple Silicon build
 
-The v1.2 source can be built as a self-contained unsigned arm64 application and DMG on an Apple Silicon Mac:
+The v1.3 source can be built as a self-contained unsigned arm64 application and DMG on an Apple Silicon Mac:
 
 ```bash
 source .venv/bin/activate
@@ -120,7 +134,7 @@ python -m pip install -r requirements-dev.txt
 ./build_macos.sh
 ```
 
-Outputs are written to `dist/Sticker Motion Toolkit.app` and `dist/Sticker-Motion-Toolkit-v1.2.0-macOS-arm64.dmg`. The packaged application opens directly into the GUI; users do not need Python or any Python packages.
+Outputs are written to `dist/Sticker Motion Toolkit.app` and `dist/Sticker-Motion-Toolkit-v1.3.0-macOS-arm64.dmg`. The packaged application opens directly into the GUI; users do not need Python or any Python packages.
 
 The development build is not code-signed or notarized. macOS Gatekeeper may therefore block the first launch. A user who trusts the file can Control-click the app, choose **Open**, and confirm **Open**. Signing and notarization should be added before public distribution.
 
@@ -157,8 +171,9 @@ The `sticker_motion` package is deliberately modular:
 
 - `splitter.py`: validates frame counts, detects layouts, and slices sheets.
 - `background.py`: optional deterministic color-to-alpha cleanup.
+- `background_layer.py`: group-based frame-range selection, cover/crop, and background compositing.
 - `animation.py`: platform-neutral frame normalization and timing model.
-- `preview.py`: reusable static contact sheet; an interactive animation preview can build on the same `Animation` model.
+- `preview.py`: reusable static contact sheet; the GUI preview animates fully prepared frames using the group duration.
 - `export.py`: the only platform branch, encoding LINE APNG or WeChat GIF.
 
 Image objects are copied into this project-owned model. There is no import from or runtime dependency on Sticker Toolkit.
@@ -167,10 +182,9 @@ Image objects are copied into this project-owned model. There is no import from 
 
 - The CLI accepts one evenly divided sprite sheet; the GUI accepts 4, 6, or 8 individual PNG frames. Irregular atlases are not supported.
 - Background removal is color-threshold based, not semantic segmentation.
-- The preview is a representative static frame, not an animated preview.
 - Text is static per job and composited consistently onto all frames; animated text effects are not implemented.
 - Vertical text uses simple character stacking; advanced East Asian vertical punctuation and layout are not implemented.
-- Background composition, frame-range grouping, and platform-specific validation/compression remain future extension points.
+- Video backgrounds, background animation editing, and platform-specific validation/compression remain future extension points.
 - GIF uses palette transparency and therefore cannot preserve partial alpha. APNG preserves full RGBA.
 - Output files are correctly encoded, but submission acceptance still depends on current platform upload rules; the toolkit does not yet enforce those rules.
 - Official V1 packaged builds target macOS Apple Silicon arm64 and Windows 10/11 x64. Other platforms have not been built or verified.

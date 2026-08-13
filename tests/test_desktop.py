@@ -30,7 +30,7 @@ def test_window_defaults_match_processing_defaults(app, settings) -> None:
     assert [window.platform_combo.itemData(index) for index in range(2)] == ["wechat", "line"]
     assert [window.platform_combo.itemText(index) for index in range(2)] == ["WeChat (GIF)", "LINE (APNG)"]
     assert window.frame_list.count() == 0
-    assert window.duration_spin.value() == 200
+    assert window.duration_spin.value() == 250
     assert window.font_combo.currentData() == "Iansui"
     assert not hasattr(window, "background_check")
     assert window.language == "zh-TW"
@@ -181,7 +181,10 @@ def test_every_job_editor_control_has_a_translated_visible_label(app, settings) 
             window.rotation_spin, window.vertical_combo, window.horizontal_combo,
             window.x_offset_spin, window.y_offset_spin, window.preview_label,
         )
-        visible = {window.form.labelForField(field).text() for field in fields}
+        visible = {
+            (window.form.labelForField(field) or window.text_form.labelForField(field)).text()
+            for field in fields
+        }
         assert set(labels) <= visible
         assert "" not in visible
     window.close()
@@ -229,4 +232,51 @@ def test_valid_saved_font_restores_and_missing_font_falls_back(app, settings) ->
     window._load_job(0)
     assert window.font_combo.currentData() == "Iansui"
     assert job.text_overlay.font_family == "Iansui"
+    window.close()
+
+
+def test_frame_list_wraps_without_changing_order(app, settings, tmp_path) -> None:
+    window = StickerMotionWindow(settings)
+    paths = [str(tmp_path / name) for name in ("08.png", "02.png", "01.png", "06.png")]
+    window.add_frame_paths(paths)
+    assert window.frame_list.viewMode() == window.frame_list.ViewMode.IconMode
+    assert window.frame_list.isWrapping()
+    assert [Path(path).name for path in window.frame_paths()] == ["01.png", "02.png", "06.png", "08.png"]
+    window.close()
+
+
+def test_background_ui_is_group_based_and_duplicate_copies_it(app, settings, tmp_path) -> None:
+    from PIL import Image
+
+    window = StickerMotionWindow(settings)
+    frames = []
+    for index in range(4):
+        path = tmp_path / f"frame{index}.png"; Image.new("RGBA", (40, 40)).save(path); frames.append(str(path))
+    background = tmp_path / "背景.png"; Image.new("RGB", (80, 40), "blue").save(background)
+    window.add_frame_paths(frames); window.add_background_path(str(background))
+    assert window.background_table.rowCount() == 1
+    assert window.current_job().backgrounds[0].start_frame == 1
+    assert window.current_job().backgrounds[0].end_frame == 4
+    window.background_table.cellWidget(0, 1).setValue(2)
+    window.background_table.cellWidget(0, 2).setValue(3)
+    window._duplicate_job()
+    duplicate = window.current_job()
+    assert duplicate.backgrounds[0].image_path == background
+    assert (duplicate.backgrounds[0].start_frame, duplicate.backgrounds[0].end_frame) == (2, 3)
+    assert duplicate.backgrounds is not window.queue.jobs[0].backgrounds
+    window.close()
+
+
+def test_preview_uses_group_duration_and_all_composited_frames(app, settings, tmp_path) -> None:
+    from PIL import Image
+
+    window = StickerMotionWindow(settings)
+    paths = []
+    for index in range(4):
+        path = tmp_path / f"p{index}.png"; Image.new("RGBA", (40, 40), (index * 40, 0, 0, 255)).save(path); paths.append(str(path))
+    window.add_frame_paths(paths); window.duration_spin.setValue(333)
+    assert len(window._preview_frames) == 4
+    assert window.preview_timer.interval() == 333
+    before = window._preview_index; window._advance_preview()
+    assert window._preview_index == (before + 1) % 4
     window.close()
