@@ -6,6 +6,9 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .line_validation import (
+    ExportValidationResult, LINE_MAX_TOTAL_DURATION_MS, LINE_PLAY_COUNTS,
+)
 from .splitter import MAX_FRAME_COUNT, MIN_FRAME_COUNT
 
 DEFAULT_GROUP_DURATION_MS = 220
@@ -44,6 +47,7 @@ class AnimationJob:
     frame_paths: list[Path] = field(default_factory=list)
     duration_ms: int = DEFAULT_GROUP_DURATION_MS
     platform: str = "wechat"
+    play_count: int = 1
     remove_background: bool = False
     background_tolerance: int = 0
     output_filename: str = ""
@@ -51,6 +55,7 @@ class AnimationJob:
     backgrounds: list[BackgroundEntry] = field(default_factory=list)
     status: str = "ready"
     status_message: str = ""
+    post_export_validation: ExportValidationResult | None = None
 
     @property
     def frame_count(self) -> int:
@@ -72,6 +77,16 @@ class AnimationJob:
             errors.append("duration")
         if not self.name.strip():
             errors.append("name")
+        if self.platform not in {"line", "wechat"}:
+            errors.append(f"platform:{self.platform}")
+        if self.platform == "line":
+            if self.play_count not in LINE_PLAY_COUNTS:
+                errors.append(f"line_play_count:{self.play_count}")
+            else:
+                single_loop_ms = self.frame_count * self.duration_ms
+                total_play_ms = single_loop_ms * self.play_count
+                if total_play_ms > LINE_MAX_TOTAL_DURATION_MS:
+                    errors.append(f"line_duration:{single_loop_ms}:{self.play_count}:{total_play_ms}")
         missing = [path for path in self.frame_paths if not Path(path).is_file()]
         if missing:
             errors.append(f"missing_frames:{len(missing)}")
@@ -84,11 +99,17 @@ class AnimationJob:
                 errors.append(f"background_range:{index}")
         return errors
 
+    def invalidate_post_export_validation(self) -> None:
+        self.post_export_validation = None
+        self.status = "ready"
+        self.status_message = ""
+
     def duplicate(self, name: str | None = None) -> "AnimationJob":
         result = deepcopy(self)
         result.name = name or f"{self.name} copy"
         result.status = "ready"
         result.status_message = ""
+        result.post_export_validation = None
         return result
 
 

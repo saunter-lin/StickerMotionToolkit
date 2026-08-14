@@ -10,6 +10,9 @@ from PySide6.QtWidgets import QApplication
 
 from sticker_motion.batch import export_jobs, prepare_job_frames, unique_output_path
 from sticker_motion.jobs import AnimationJob, AnimationQueue, BackgroundEntry, TextOverlaySettings
+from sticker_motion.line_validation import (
+    ExportValidationResult, classify_line_apng_size, validate_line_apng,
+)
 from sticker_motion.background_layer import apply_backgrounds, scale_to_cover
 from sticker_motion.text_overlay import overlay_position, render_text_layer
 
@@ -144,10 +147,69 @@ def test_v12_text_defaults_are_backward_compatible() -> None:
 def test_default_platform_is_wechat() -> None:
     assert AnimationJob("default").platform == "wechat"
     assert AnimationJob("default").duration_ms == 220
+    assert AnimationJob("default").play_count == 1
 
 
 def test_explicit_legacy_duration_remains_unchanged() -> None:
     assert AnimationJob("legacy", duration_ms=200).duration_ms == 200
+
+
+@pytest.mark.parametrize("play_count", [1, 2, 3, 4])
+def test_line_play_count_is_written_and_read_back(tmp_path: Path, play_count: int) -> None:
+    job = AnimationJob("line", make_frames(tmp_path / "frames", 4), platform="line", duration_ms=200, play_count=play_count)
+    output = export_jobs([job], tmp_path / "out")[0]
+    with Image.open(output) as animation:
+        assert animation.info["loop"] == play_count
+    assert job.post_export_validation is not None
+    assert job.post_export_validation.actual_play_count == play_count
+    assert job.post_export_validation.level == "ok"
+
+
+def test_line_rejects_infinite_play_count_but_wechat_ignores_it(tmp_path: Path) -> None:
+    frames = make_frames(tmp_path / "frames", 4)
+    assert AnimationJob("line", frames, platform="line", play_count=0).validation_errors() == ["line_play_count:0"]
+    assert AnimationJob("wechat", frames, platform="wechat", play_count=0).validation_errors() == []
+
+
+def test_line_apng_readback_rejects_infinite_and_mismatched_metadata(tmp_path: Path) -> None:
+    frames = tuple(Image.new("RGBA", (10, 10), (index * 40, 0, 0, 255)) for index in range(2))
+    infinite = tmp_path / "infinite.png"
+    frames[0].save(infinite, save_all=True, append_images=list(frames[1:]), duration=200, loop=0)
+    result = validate_line_apng(infinite, 1)
+    assert result.level == "error"
+    assert "line_infinite_loop" in result.reasons
+    mismatch = tmp_path / "mismatch.png"
+    frames[0].save(mismatch, save_all=True, append_images=list(frames[1:]), duration=200, loop=2)
+    result = validate_line_apng(mismatch, 3)
+    assert result.level == "error"
+    assert "line_play_count_mismatch:3:2" in result.reasons
+
+
+def test_line_duration_boundary_and_platform_isolation(tmp_path: Path) -> None:
+    five = make_frames(tmp_path / "five", 5)
+    assert AnimationJob("line", five, platform="line", duration_ms=200, play_count=4).validation_errors() == []
+    eleven = make_frames(tmp_path / "eleven", 11)
+    assert "line_duration:2420:2:4840" in AnimationJob(
+        "line", eleven, platform="line", duration_ms=220, play_count=2
+    ).validation_errors()
+    assert AnimationJob("wechat", eleven, platform="wechat", duration_ms=220, play_count=4).validation_errors() == []
+
+
+@pytest.mark.parametrize(
+    ("file_bytes", "level"),
+    [(950_000, "ok"), (950_001, "warning"), (1_000_000, "warning"), (1_000_001, "error")],
+)
+def test_line_apng_size_boundaries(file_bytes: int, level: str) -> None:
+    assert classify_line_apng_size(file_bytes) == level
+
+
+def test_post_export_result_can_be_invalidated() -> None:
+    job = AnimationJob("result")
+    job.post_export_validation = ExportValidationResult("warning", ("line_size_warning:950001",), 950_001, 1)
+    job.status = "warning"
+    job.invalidate_post_export_validation()
+    assert job.post_export_validation is None
+    assert job.status == "ready"
 
 
 def test_background_scale_to_cover_center_crops() -> None:

@@ -3,7 +3,8 @@ from __future__ import annotations
 from PIL import Image
 
 from sticker_motion.animation import build_animation
-from sticker_motion.export import export_animation
+from sticker_motion.animation import Animation
+from sticker_motion.export import export_animation, export_line_apng
 
 
 def animation(count: int = 4, duration: int = 200):
@@ -19,6 +20,13 @@ def test_line_export_is_animated_png(tmp_path) -> None:
         assert exported.is_animated
         assert exported.n_frames == 6
         assert exported.info["duration"] == 150.0
+
+
+def test_generic_apng_preserves_infinite_loop_behavior(tmp_path) -> None:
+    source = animation(4)
+    path = export_line_apng(Animation(source.frames, source.duration_ms, loop=0), tmp_path / "generic.png")
+    with Image.open(path) as exported:
+        assert exported.info["loop"] == 0
 
 
 def test_wechat_export_is_animated_gif(tmp_path) -> None:

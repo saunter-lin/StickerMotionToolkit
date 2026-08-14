@@ -87,6 +87,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "validation_output": "請選擇輸出路徑。",
         "source_placeholder": "選擇等分的精靈圖",
         "platform": "輸出格式",
+        "play_count": "播放次數",
         "frames": "影格數",
         "layout": "排列方式",
         "layout_auto": "自動",
@@ -122,6 +123,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_invalid_sheet": "圖片尺寸無法依所選排列方式平均分割。",
         "error_file_not_found": "找不到來源圖片。",
         "error_permission": "沒有權限讀取或寫入所選路徑。",
+        "not_validated": "尚未驗證輸出",
+        "line_play_count_error": "LINE 播放次數必須為 1、2、3 或 4。",
+        "line_duration_error": "LINE 動畫播放時間超過 4 秒：{single} ms × {plays} 次 = {total} ms",
+        "line_infinite_loop_error": "LINE APNG 包含無限循環 metadata（num_plays = 0）。",
+        "line_play_count_mismatch": "LINE APNG 播放次數不符：要求 {requested}，實際 {actual}。",
+        "line_metadata_invalid": "LINE APNG metadata 無效或無法讀取。",
+        "line_size_warning": "LINE APNG 容量警告：{bytes} bytes（{kb} KB）。",
+        "line_size_error": "LINE APNG 超過 1 MB：{bytes} bytes（{kb} KB）。",
+        "line_export_ok": "LINE 驗證通過：{bytes} bytes（{kb} KB），播放 {plays} 次。",
+        "export_ok": "輸出驗證通過：{bytes} bytes（{kb} KB）。",
+        "exporter_failure": "匯出器失敗：{error}",
     },
     "zh-CN": {
         "window_title": "Sticker Motion Toolkit",
@@ -198,6 +210,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "validation_output": "请选择输出路径。",
         "source_placeholder": "选择均分的精灵图",
         "platform": "输出格式",
+        "play_count": "播放次数",
         "frames": "帧数",
         "layout": "排列方式",
         "layout_auto": "自动",
@@ -233,6 +246,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_invalid_sheet": "图片尺寸无法按所选排列方式平均分割。",
         "error_file_not_found": "找不到源图片。",
         "error_permission": "没有权限读取或写入所选路径。",
+        "not_validated": "尚未验证输出",
+        "line_play_count_error": "LINE 播放次数必须为 1、2、3 或 4。",
+        "line_duration_error": "LINE 动画播放时间超过 4 秒：{single} ms × {plays} 次 = {total} ms",
+        "line_infinite_loop_error": "LINE APNG 包含无限循环 metadata（num_plays = 0）。",
+        "line_play_count_mismatch": "LINE APNG 播放次数不符：要求 {requested}，实际 {actual}。",
+        "line_metadata_invalid": "LINE APNG metadata 无效或无法读取。",
+        "line_size_warning": "LINE APNG 容量警告：{bytes} bytes（{kb} KB）。",
+        "line_size_error": "LINE APNG 超过 1 MB：{bytes} bytes（{kb} KB）。",
+        "line_export_ok": "LINE 验证通过：{bytes} bytes（{kb} KB），播放 {plays} 次。",
+        "export_ok": "输出验证通过：{bytes} bytes（{kb} KB）。",
+        "exporter_failure": "导出器失败：{error}",
     },
     "en": {
         "window_title": "Sticker Motion Toolkit",
@@ -309,6 +333,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "validation_output": "Choose an output path.",
         "source_placeholder": "Choose an evenly divided sprite sheet",
         "platform": "Output Format",
+        "play_count": "Play Count",
         "frames": "Frames",
         "layout": "Layout",
         "layout_auto": "Auto",
@@ -344,6 +369,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_invalid_sheet": "The image dimensions cannot be evenly divided using the selected layout.",
         "error_file_not_found": "The source image could not be found.",
         "error_permission": "Permission was denied for the selected path.",
+        "not_validated": "Not validated",
+        "line_play_count_error": "LINE Play Count must be 1, 2, 3, or 4.",
+        "line_duration_error": "LINE animation duration exceeds 4 seconds: {single} ms × {plays} plays = {total} ms",
+        "line_infinite_loop_error": "LINE APNG contains infinite loop metadata (num_plays = 0).",
+        "line_play_count_mismatch": "LINE APNG Play Count mismatch: requested {requested}, actual {actual}.",
+        "line_metadata_invalid": "LINE APNG metadata is invalid or unreadable.",
+        "line_size_warning": "LINE APNG size warning: {bytes} bytes ({kb} KB).",
+        "line_size_error": "LINE APNG exceeds 1 MB: {bytes} bytes ({kb} KB).",
+        "line_export_ok": "LINE validation passed: {bytes} bytes ({kb} KB), {plays} plays.",
+        "export_ok": "Export validation passed: {bytes} bytes ({kb} KB).",
+        "exporter_failure": "Exporter failure: {error}",
     },
 }
 
@@ -366,4 +402,17 @@ def localized_error(language: str, error: Exception) -> str:
         return translate(language, "error_invalid_frames")
     if "not evenly divisible" in message:
         return translate(language, "error_invalid_sheet")
+    parts = message.split(":")
+    if parts[0] == "line_play_count":
+        return translate(language, "line_play_count_error")
+    if parts[0] == "line_duration" and len(parts) == 4:
+        return translate(language, "line_duration_error", single=parts[1], plays=parts[2], total=parts[3])
+    if parts[0] == "line_infinite_loop":
+        return translate(language, "line_infinite_loop_error")
+    if parts[0] == "line_play_count_mismatch" and len(parts) == 3:
+        return translate(language, "line_play_count_mismatch", requested=parts[1], actual=parts[2])
+    if parts[0] == "line_metadata_invalid":
+        return translate(language, "line_metadata_invalid")
+    if parts[0] == "line_size_error" and len(parts) == 2:
+        size = int(parts[1]); return translate(language, "line_size_error", bytes=f"{size:,}", kb=f"{size / 1000:.2f}")
     return message

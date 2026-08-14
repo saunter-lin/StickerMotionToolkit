@@ -134,7 +134,7 @@ python -m pip install -r requirements-dev.txt
 ./build_macos.sh
 ```
 
-Outputs are written to `dist/Sticker Motion Toolkit.app` and `dist/Sticker-Motion-Toolkit-v1.3.1-macOS-arm64.dmg`. The packaged application opens directly into the GUI; users do not need Python or any Python packages.
+Outputs are written to `dist/Sticker Motion Toolkit.app` and `dist/Sticker-Motion-Toolkit-v1.3.2-macOS-arm64.dmg`. The packaged application opens directly into the GUI; users do not need Python or any Python packages.
 
 The development build is not code-signed or notarized. macOS Gatekeeper may therefore block the first launch. A user who trusts the file can Control-click the app, choose **Open**, and confirm **Open**. Signing and notarization should be added before public distribution.
 

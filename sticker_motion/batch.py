@@ -7,11 +7,12 @@ from pathlib import Path
 
 from PIL import Image
 
-from .animation import build_animation
+from .animation import Animation, build_animation
 from .background import remove_background
 from .background_layer import apply_backgrounds
 from .export import export_animation
 from .jobs import AnimationJob
+from .line_validation import ExportValidationResult, validate_line_apng
 from .text_overlay import apply_text_overlay
 
 ProgressCallback = Callable[[int, int, AnimationJob], None]
@@ -50,8 +51,20 @@ def export_job(job: AnimationJob, output_folder: str | Path) -> Path:
     if not font_available:
         job.status_message = "font_fallback"
     animation = build_animation(frames, job.duration_ms)
+    if job.platform == "line":
+        animation = Animation(animation.frames, animation.duration_ms, job.play_count)
     destination = unique_output_path(Path(output_folder), job.resolved_filename())
-    return export_animation(animation, job.platform, destination)
+    output = export_animation(animation, job.platform, destination)
+    if job.platform == "line":
+        result = validate_line_apng(output, job.play_count)
+    else:
+        result = ExportValidationResult("ok", (f"export_ok:{output.stat().st_size}",), output.stat().st_size)
+    job.post_export_validation = result
+    job.status_message = result.reasons[0]
+    if result.level == "error":
+        raise ValueError(result.reasons[0])
+    job.status = "warning" if result.level == "warning" else "complete"
+    return output
 
 
 def export_jobs(
@@ -67,13 +80,18 @@ def export_jobs(
     outputs = []
     total = len(jobs)
     for index, job in enumerate(jobs):
+        job.post_export_validation = None
         job.status = "exporting"
         if progress:
             progress(index, total, job)
         try:
             outputs.append(export_job(job, folder))
-        except Exception:
+        except Exception as error:
             job.status = "error"
+            if job.post_export_validation is None:
+                job.post_export_validation = ExportValidationResult("error", (f"exporter_failure:{error}",), 0)
+                job.status_message = job.post_export_validation.reasons[0]
             raise
-        job.status = "complete"
+        if job.status == "exporting":
+            job.status = "complete"
     return outputs
