@@ -83,7 +83,7 @@ class StickerMotionWindow(QMainWindow):
 
         self.job_name_edit, self.output_filename_edit = QLineEdit(), QLineEdit()
         self.platform_combo = QComboBox(); self.platform_combo.addItem("WeChat (GIF)", "wechat"); self.platform_combo.addItem("LINE (APNG)", "line")
-        self.play_count_combo = QComboBox(); [self.play_count_combo.addItem(str(count), count) for count in (1, 2, 3, 4)]
+        self.play_count_combo = QComboBox(); [self.play_count_combo.addItem("", seconds) for seconds in (1, 2, 3, 4)]
         self.frame_count_combo = QComboBox(); self.frame_count_combo.setVisible(False)
         self.duration_spin = QSpinBox(); self.duration_spin.setRange(10, 10000); self.duration_spin.setValue(220); self.duration_spin.setSuffix(" ms")
         self.frame_list = QListWidget(); self.frame_list.setMinimumHeight(110); self.frame_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding); self.frame_list.setViewMode(QListWidget.ViewMode.IconMode); self.frame_list.setFlow(QListWidget.Flow.LeftToRight); self.frame_list.setWrapping(True); self.frame_list.setResizeMode(QListWidget.ResizeMode.Adjust); self.frame_list.setMovement(QListWidget.Movement.Static); self.frame_list.setGridSize(QSize(150, 30)); self.frame_list.setUniformItemSizes(True)
@@ -198,6 +198,8 @@ class StickerMotionWindow(QMainWindow):
             label.setText(self.t(key))
         for combo, prefix, values in ((self.text_direction_combo, "direction_", ("horizontal", "vertical")), (self.vertical_combo, "position_", ("top", "center", "bottom")), (self.horizontal_combo, "align_", ("left", "center", "right"))):
             for index, value in enumerate(values): combo.setItemText(index, self.t(prefix + value))
+        for index, seconds in enumerate((1, 2, 3, 4)):
+            self.play_count_combo.setItemText(index, self.t(f"playback_seconds_{seconds}"))
         self.output_folder_edit.setPlaceholderText(self.t("output_folder")); self.file_menu.setTitle(self.t("menu_file")); self.export_action.setText(self.t("export_all")); self.quit_action.setText(self.t("menu_quit")); self.help_menu.setTitle(self.t("menu_help")); self.about_action.setText(self.t("menu_about"))
         if not self.status_label.text(): self._set_status(self.t("ready"))
 
@@ -231,16 +233,18 @@ class StickerMotionWindow(QMainWindow):
 
     def _localized_validation_reason(self, reason: str) -> str:
         parts = reason.split(":")
-        if parts[0] == "line_duration": return self.t("line_duration_error", single=parts[1], plays=parts[2], total=parts[3])
         if parts[0] == "line_play_count": return self.t("line_play_count_error")
         if parts[0] == "line_infinite_loop": return self.t("line_infinite_loop_error")
         if parts[0] == "line_play_count_mismatch": return self.t("line_play_count_mismatch", requested=parts[1], actual=parts[2])
+        if parts[0] == "line_playback_mismatch": return self.t("line_playback_mismatch", requested=parts[1], actual=parts[2])
+        if parts[0] == "line_total_playback": return self.t("line_total_playback", total=parts[1])
+        if parts[0] == "line_frame_count_mismatch": return self.t("line_frame_count_mismatch", requested=parts[1], actual=parts[2])
         if parts[0] == "line_metadata_invalid": return self.t("line_metadata_invalid")
         if parts[0] == "exporter_failure": return self.t("exporter_failure", error=":".join(parts[1:]))
         if parts[0] in {"line_size_warning", "line_size_error", "line_export_ok", "export_ok"}:
             size = int(parts[1]); key = {"line_size_warning": "line_size_warning", "line_size_error": "line_size_error", "line_export_ok": "line_export_ok", "export_ok": "export_ok"}[parts[0]]
             values = {"bytes": f"{size:,}", "kb": f"{size / 1000:.2f}"}
-            if parts[0] == "line_export_ok": values["plays"] = parts[2]
+            if parts[0] == "line_export_ok": values.update(plays=parts[2], playback=parts[3])
             return self.t(key, **values)
         if parts[0] == "not_validated": return self.t("not_validated")
         return localized_error(self.language, ValueError(reason))

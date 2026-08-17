@@ -16,14 +16,15 @@ DEFAULT_FRAME_DURATION_MS = 200
 @dataclass(frozen=True)
 class Animation:
     frames: tuple[Image.Image, ...]
-    duration_ms: int = DEFAULT_FRAME_DURATION_MS
+    duration_ms: int | tuple[int, ...] = DEFAULT_FRAME_DURATION_MS
     loop: int = 0
 
     def __post_init__(self) -> None:
         if not MIN_FRAME_COUNT <= len(self.frames) <= MAX_FRAME_COUNT:
             raise ValueError(f"animations require {MIN_FRAME_COUNT} to {MAX_FRAME_COUNT} frames")
-        if self.duration_ms <= 0:
-            raise ValueError("duration_ms must be positive")
+        durations = (self.duration_ms,) if isinstance(self.duration_ms, int) else self.duration_ms
+        if len(durations) not in (1, len(self.frames)) or any(duration <= 0 for duration in durations):
+            raise ValueError("duration_ms must contain positive timing for every frame")
         if self.loop < 0:
             raise ValueError("loop must be zero or positive")
         sizes = {frame.size for frame in self.frames}

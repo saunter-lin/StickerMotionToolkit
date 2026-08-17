@@ -12,6 +12,7 @@ from app.ui.desktop import launch
 from app.workers.pipeline import process_frame_files
 from sticker_motion.batch import export_jobs
 from sticker_motion.jobs import AnimationJob, BackgroundEntry, TextOverlaySettings
+from sticker_motion.line_validation import read_apng_timing
 
 
 def packaged_self_test(output_dir: Path) -> int:
@@ -33,8 +34,13 @@ def packaged_self_test(output_dir: Path) -> int:
     line_path, wechat_path = export_jobs(jobs, output_dir)
     for path, expected_format in ((line_path, "PNG"), (wechat_path, "GIF")):
         with Image.open(path) as animation:
-            if animation.format != expected_format or animation.n_frames != 4 or animation.info.get("duration") != 220:
+            if animation.format != expected_format or animation.n_frames != 4:
                 raise RuntimeError(f"invalid packaged export: {path}")
+            if path == wechat_path and animation.info.get("duration") != 220:
+                raise RuntimeError(f"invalid WeChat timing: {path}")
+    line_timing = read_apng_timing(line_path)
+    if line_timing.one_cycle_seconds != 1 or line_timing.total_playback_seconds > 4:
+        raise RuntimeError(f"invalid LINE timing: {line_path}")
     print(f"PACKAGED_SELF_TEST_OK {line_path} {wechat_path}")
     app.quit()
     return 0

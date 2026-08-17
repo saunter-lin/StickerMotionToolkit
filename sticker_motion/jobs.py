@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .line_validation import (
-    ExportValidationResult, LINE_MAX_TOTAL_DURATION_MS, LINE_PLAY_COUNTS,
+    ExportValidationResult, LINE_PLAYBACK_SECONDS,
 )
 from .splitter import MAX_FRAME_COUNT, MIN_FRAME_COUNT
 
@@ -80,13 +80,8 @@ class AnimationJob:
         if self.platform not in {"line", "wechat"}:
             errors.append(f"platform:{self.platform}")
         if self.platform == "line":
-            if self.play_count not in LINE_PLAY_COUNTS:
+            if self.play_count not in LINE_PLAYBACK_SECONDS:
                 errors.append(f"line_play_count:{self.play_count}")
-            else:
-                single_loop_ms = self.frame_count * self.duration_ms
-                total_play_ms = single_loop_ms * self.play_count
-                if total_play_ms > LINE_MAX_TOTAL_DURATION_MS:
-                    errors.append(f"line_duration:{single_loop_ms}:{self.play_count}:{total_play_ms}")
         missing = [path for path in self.frame_paths if not Path(path).is_file()]
         if missing:
             errors.append(f"missing_frames:{len(missing)}")

@@ -12,7 +12,9 @@ from .background import remove_background
 from .background_layer import apply_backgrounds
 from .export import export_animation
 from .jobs import AnimationJob
-from .line_validation import ExportValidationResult, validate_line_apng
+from .line_validation import (
+    ExportValidationResult, line_frame_durations_ms, line_play_count, validate_line_apng,
+)
 from .text_overlay import apply_text_overlay
 
 ProgressCallback = Callable[[int, int, AnimationJob], None]
@@ -52,11 +54,15 @@ def export_job(job: AnimationJob, output_folder: str | Path) -> Path:
         job.status_message = "font_fallback"
     animation = build_animation(frames, job.duration_ms)
     if job.platform == "line":
-        animation = Animation(animation.frames, animation.duration_ms, job.play_count)
+        animation = Animation(
+            animation.frames,
+            line_frame_durations_ms(job.frame_count, job.play_count),
+            line_play_count(job.play_count),
+        )
     destination = unique_output_path(Path(output_folder), job.resolved_filename())
     output = export_animation(animation, job.platform, destination)
     if job.platform == "line":
-        result = validate_line_apng(output, job.play_count)
+        result = validate_line_apng(output, job.play_count, job.frame_count)
     else:
         result = ExportValidationResult("ok", (f"export_ok:{output.stat().st_size}",), output.stat().st_size)
     job.post_export_validation = result
