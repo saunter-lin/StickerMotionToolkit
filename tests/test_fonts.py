@@ -18,10 +18,15 @@ def test_bundled_font_resources_exist_and_register() -> None:
     assert DEFAULT_FONT == "Iansui"
     paths = bundled_font_paths()
     assert all(path.is_file() and path.stat().st_size > 1_000_000 for path in paths)
-    register_bundled_fonts()
-    families = set(QFontDatabase.families())
-    assert {font.family for font in BUNDLED_FONTS} <= families
-    assert available_font_families()
+    families = register_bundled_fonts()
+    assert families == tuple(font.family for font in BUNDLED_FONTS)
+    assert available_font_families()[:3] == list(families)
+
+
+def test_empty_system_font_enumeration_keeps_bundled_fonts(monkeypatch) -> None:
+    bundled = register_bundled_fonts()
+    monkeypatch.setattr(QFontDatabase, "families", staticmethod(lambda: []))
+    assert available_font_families() == list(bundled)
 
 
 def test_local_font_registration_remains_available(tmp_path: Path) -> None:

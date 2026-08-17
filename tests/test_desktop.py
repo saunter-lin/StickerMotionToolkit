@@ -353,7 +353,20 @@ def test_bundled_fonts_are_fixed_first_and_local_action_is_last(app, settings) -
     separator_index = next(index for index in range(window.font_combo.count()) if window.font_combo.itemText(index) == SYSTEM_SEPARATOR)
     assert not window.font_combo.model().item(separator_index).isEnabled()
     assert window.font_combo.itemData(window.font_combo.count() - 1) == LOCAL_FONT_ACTION
-    assert window.font_combo.count() > 6
+    assert window.font_combo.count() >= 5
+    window.close()
+
+
+def test_empty_system_fonts_keeps_bundled_fonts_and_local_action_last(app, settings, monkeypatch) -> None:
+    from PySide6.QtGui import QFontDatabase
+    from sticker_motion.fonts import LOCAL_FONT_ACTION, SYSTEM_SEPARATOR
+
+    monkeypatch.setattr(QFontDatabase, "families", staticmethod(lambda: []))
+    window = StickerMotionWindow(settings)
+    assert [window.font_combo.itemText(index) for index in range(3)] == ["芫荽", "粉圓體", "辰宇落雁體"]
+    assert window.font_combo.itemText(3) == SYSTEM_SEPARATOR
+    assert window.font_combo.itemData(window.font_combo.count() - 1) == LOCAL_FONT_ACTION
+    assert window.font_combo.count() == 5
     window.close()
 
 

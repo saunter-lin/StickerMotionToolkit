@@ -22,7 +22,8 @@ from sticker_motion.batch import export_jobs, prepare_job_frames
 from sticker_motion.jobs import AnimationJob, AnimationQueue, BackgroundEntry
 from sticker_motion.fonts import (
     BUNDLED_FONTS, DEFAULT_FONT, LOCAL_FONT_ACTION, SYSTEM_SEPARATOR,
-    available_font_families, register_local_font, valid_font_family,
+    available_font_families, register_bundled_fonts, register_local_font,
+    resolved_font_family_name, valid_font_family,
 )
 
 
@@ -152,15 +153,19 @@ class StickerMotionWindow(QMainWindow):
 
     def _populate_font_combo(self, selected: str = DEFAULT_FONT) -> None:
         self.font_combo.clear()
-        for font in BUNDLED_FONTS:
-            self.font_combo.addItem(font.label, font.family)
+        bundled_families = register_bundled_fonts()
+        for font, family in zip(BUNDLED_FONTS, bundled_families, strict=True):
+            self.font_combo.addItem(font.label, family)
         self.font_combo.addItem(SYSTEM_SEPARATOR)
         separator_index = self.font_combo.count() - 1
         self.font_combo.model().item(separator_index).setEnabled(False)
+        bundled_keys = {family.casefold() for family in bundled_families}
         for family in available_font_families():
+            if family.casefold() in bundled_keys:
+                continue
             self.font_combo.addItem(family, family)
         self.font_combo.addItem(self.t("choose_local_font"), LOCAL_FONT_ACTION)
-        family = selected if valid_font_family(selected) else DEFAULT_FONT
+        family = resolved_font_family_name(selected) or bundled_families[0]
         self.font_combo.setCurrentIndex(self.font_combo.findData(family))
 
     def _font_activated(self, index: int) -> None:
