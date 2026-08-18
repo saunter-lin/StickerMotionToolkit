@@ -1,132 +1,162 @@
 # Sticker Motion Toolkit
 
-Sticker Motion Toolkit is a standalone animated-sticker creation tool and a companion to Sticker Toolkit. It shares no code or runtime dependency with Sticker Toolkit.
+Sticker Motion Toolkit is a standalone desktop tool for turning ordered PNG frames into animated stickers. It exports LINE animations as APNG and WeChat animations as GIF, and runs independently from [Sticker Toolkit](https://github.com/saunter-lin/StickerToolkit).
 
-The primary V1 workflow is:
+Current release: **v1.3.3**
+
+## Download
+
+Download the latest builds from the [v1.3.3 GitHub Release](https://github.com/saunter-lin/StickerMotionToolkit/releases/tag/v1.3.3).
+
+| Platform | Release file | Requirements |
+| --- | --- | --- |
+| macOS | `StickerMotionToolkit-v1.3.3-macOS-arm64.dmg` | Apple Silicon (arm64) |
+| Windows | `StickerMotionToolkit-v1.3.3-Windows-x64.zip` | Windows 10/11 x64 |
+
+The packaged applications are self-contained. End users do not need Python, PySide6, Pillow, or PyInstaller.
+
+Both builds are currently unsigned. macOS Gatekeeper or Windows SmartScreen may therefore display a warning. Only download release files from this repository and verify the source before opening them.
+
+## What it does
 
 ```text
-prepared individual PNG frames
-→ Sticker Motion Toolkit
-→ animated sticker
+ordered PNG frames
+        ↓
+background layers → animation frames → text overlay
+        ↓
+LINE APNG or WeChat GIF
 ```
 
-The processing pipeline supports animations with 2–15 frames and branches only at export:
+- Creates multiple independent animations with an Animation Job Queue.
+- Accepts **2–15 PNG frames** per animation group.
+- Uses natural filename sorting for the initial playback order.
+- Supports adding, removing, duplicating, clearing, and reordering jobs.
+- Supports adding, removing, clearing, and moving individual frames up or down.
+- Uses the visible frame-list order as the exact preview and export order.
+- Exports mixed LINE and WeChat jobs sequentially with **Export All**.
+- Never overwrites an existing output; numeric suffixes such as `name-2` are added automatically.
+- Provides a resizable, vertically scrollable PySide6 interface.
+- Supports live switching between Traditional Chinese, Simplified Chinese, and English, with the selected language remembered locally.
 
-- LINE: animated PNG (APNG)
-- WeChat: animated GIF
+## Export formats and timing
 
-## Version overview
+### WeChat GIF
 
-### v1.0
+- WeChat GIF is the default format for a newly created group.
+- New groups default to **220 ms per frame**.
+- Frame duration remains configurable per group.
+- GIF export uses palette transparency; partial alpha cannot be preserved.
 
-- Single-animation workflow using one ordered frame list
-- Official macOS Apple Silicon arm64 and Windows 10/11 x64 builds
+### LINE APNG
 
-### v1.1
+- LINE Playback Time can be set to **1, 2, 3, or 4 seconds**.
+- Frame delays are distributed precisely, including when the selected playback time is not evenly divisible by the frame count.
+- Exported APNG timing and play-count metadata are read back and validated after encoding.
+- Finite play metadata keeps total LINE animation playback within four seconds.
+- APNG preserves full RGBA transparency.
 
-- Animation Job Queue for preparing multiple independent animations
-- Per-job frames, platform, duration, filename, status, and text settings
-- Add, remove, duplicate, clear, and reorder jobs
-- Sequential Export All with progress; mixed LINE APNG and WeChat GIF queues are supported
-- Existing files are never overwritten: `name-2`, `name-3`, and later numeric suffixes are used
-- Optional static text overlay composited onto every frame
-- Host font selection, size, fill/stroke colors, stroke width, top/center/bottom, left/center/right, and X/Y offsets
-- Representative first-frame text preview
-- Dedicated Berry Motion application icon
-- Bundled Iansui, jf open Huninn, and ChenYuluoyan fonts, with local-font selection still available
+The LINE timing options do not change the group’s stored per-frame duration or WeChat GIF behavior.
 
-### v1.2 development
+## Background layers
 
-- Every per-job setting has a visible translated label in a compact two-column form
-- Text Overlay supports horizontal text and simple top-to-bottom character stacking
-- Arbitrary text rotation from -180° to +180° is applied after layout and outline rendering
-- Preview and final APNG/GIF export share the same text-rendering implementation
-- Windows application identity uses the stable AppUserModelID `Saunter.StickerMotionToolkit`
+Each animation group can contain still background images with independent inclusive start and end frames.
 
-### v1.3 development
+- Multiple backgrounds may overlap; list order defines bottom-to-top precedence.
+- Backgrounds use aspect-preserving **Scale to Cover** with center crop.
+- Frames outside all background ranges retain their original transparency.
+- Background ranges are validated against the group’s actual frame count.
+- The final layer order is **Background → Animation Frame → Text Overlay**.
 
-- Group-based Background Layer entries with independent start/end frame ranges
-- Multiple still backgrounds can overlap; list order defines bottom-to-top precedence
-- Backgrounds use aspect-preserving Scale to Cover with center crop
-- Final layer order is Background → Animation Frame → Text Overlay
-- Animation frames use a wrapping multi-column display without changing playback order
-- Preview animates the fully composited group at its configured frame duration
-- New groups default to 220 ms per frame; existing explicit durations such as 200 ms remain unchanged
+Sticker Motion Toolkit does not cut background sprite sheets. Prepare or split those images in Sticker Toolkit before adding them here.
 
-## Shared features
+## Text overlay and fonts
 
-- Individual PNG frame input in the GUI
-- Animations with 2–15 frames
-- Natural filename sorting and manual playback-order management
-- Move Up, Move Down, Remove selected, and Clear all controls
-- New GUI groups default to 220 ms per frame; duration remains configurable and the CLI default remains 200 ms
-- WeChat GIF is the default for new jobs; LINE APNG remains available from the same output-format menu
-- Optional solid-background removal remains available through the source CLI and processing API for compatibility; it is not shown in the v1.1 GUI
-- LINE APNG and WeChat GIF export
-- Traditional Chinese, Simplified Chinese, and English GUI
-- Persisted language preference and live language switching
-- Resizable, vertically scrollable desktop interface
-- Standalone macOS Apple Silicon arm64 and Windows 10/11 x64 builds
+Text Overlay is rendered through the same composition path for preview and final APNG/GIF export.
 
-## Setup
+Available controls include:
+
+- text content, font, size, fill color, outline color, and outline width;
+- top, center, or bottom vertical placement;
+- left, center, or right horizontal alignment;
+- X/Y offsets;
+- horizontal text or simple top-to-bottom character stacking;
+- rotation from -180° to +180°.
+
+Three redistributable fonts are bundled and always appear first in the font menu:
+
+1. 芫荽 (Iansui, default)
+2. 粉圓體 (jf open Huninn)
+3. 辰宇落雁體 (ChenYuluoyan)
+4. system fonts
+5. **Choose Local Font…**
+
+Bundled fonts are loaded from application resources and are not installed into the operating system. Preview and export share the same font-resolution and fallback logic. Official font sources and licenses are documented in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+
+## Desktop workflow
+
+1. Create or select an animation group.
+2. Choose WeChat GIF or LINE APNG.
+3. Add 2–15 individual PNG frames.
+4. Review and adjust their playback order.
+5. Configure duration or LINE Playback Time.
+6. Optionally add background layers and text.
+7. Use Preview to inspect the fully composited animation.
+8. Choose an output folder and select **Export All**.
+
+Plan the final composition before creating the character frames. If backgrounds or text will be added, leave enough visible space around the character; roughly 75% character occupancy is a useful starting point, not a hard requirement.
+
+## Run from source
 
 Python 3.10 or newer is recommended.
 
 ```bash
+git clone https://github.com/saunter-lin/StickerMotionToolkit.git
+cd StickerMotionToolkit
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
-```
-
-## GUI usage
-
-```bash
 python -m app.main --gui
 ```
 
-Select 2–15 individual PNG frames. Files initially use natural filename order (for example, `frame2.png` precedes `frame10.png`) and can then be moved, removed, or cleared. The visible list is the exact APNG/GIF playback order.
-
-The desktop window is freely resizable. Its content expands horizontally and scrolls vertically when height is limited, keeping every control accessible across all three languages. The selected language is remembered through Qt platform settings.
-
-The job editor clearly labels interface language, job name, output format, frame duration, output filename, all text settings, positioning, and offsets. Text may be horizontal or stacked vertically, then rotated by any whole-number angle from -180° to +180°. Positive X moves right, negative X moves left, positive Y moves down, and negative Y moves up. The animated preview uses the same frame-composition path as final export.
-
-Backgrounds belong to one animation group. Add already prepared still images below the Animation Frames section, then set each entry's inclusive start and end frame. Frames outside every background range retain their original transparency. Background count cannot exceed the group's animation-frame count. The toolkit deliberately does not include a background grid cutter; prepare or split background sheets in Sticker Toolkit first.
-
-Plan the complete composition before generating character frames. If a background or text will be added, leave suitable visible space around the character—roughly 75% character occupancy is a useful starting point rather than a hard rule. Sky, fireworks, ground effects, scene objects, and text each need intentional room.
-
-The font menu always starts with 芫荽, 粉圓體, and 辰宇落雁體, followed by detected system fonts and **Choose Local Font…**. 芫荽 is the default. Bundled fonts are application resources and are not installed into macOS or Windows. Missing glyphs use the bundled/system fallback chain shared by preview and export. See `THIRD_PARTY_LICENSES.md` for official sources and licenses.
-
-Vertical text uses simple character-by-character stacking. Advanced East Asian vertical typography, including punctuation rotation and repositioning, is not implemented.
+On Windows, activate the environment with `.venv\Scripts\activate` before running the final command.
 
 ## CLI
 
-The source CLI remains supported for evenly divided horizontal, vertical, or grid sprite sheets. Auto layout compares sheet proportions with expected cell arrangements: 2×2 for four frames, 3×2 for six, and 4×2 for eight.
-
-Horizontal, vertical, and grid sprite sheets are supported. Auto layout compares the sheet proportions with the expected cell arrangements. Grid arrangements are 2x2 for four frames, 3x2 for six, and 4x2 for eight, read left-to-right and top-to-bottom.
+The source CLI creates one animation from an evenly divided horizontal, vertical, or grid sprite sheet. It is preserved alongside the GUI workflow.
 
 ```bash
 # LINE APNG, eight frames, automatic layout, 200 ms/frame
 python -m app.main sheet.png output/line.png --platform line --frames 8
 
-# WeChat GIF with six frames and a custom duration
+# WeChat GIF, six-frame grid, custom duration
 python -m app.main sheet.png output/wechat.gif \
   --platform wechat --frames 6 --layout grid --duration 120
 
 # Remove a uniform background sampled from each frame's top-left corner
 python -m app.main sheet.png output/line.png \
   --platform line --frames 4 --remove-background --background-tolerance 10
-
 ```
 
-Run tests with:
+The CLI default remains **200 ms per frame**. Auto layout supports horizontal, vertical, and conventional grid arrangements. Common grids are 2×2 for four frames, 3×2 for six, and 4×2 for eight, read left-to-right and top-to-bottom.
+
+The optional solid-color background removal remains available through the CLI and processing API for compatibility. It is intentionally not exposed in the desktop GUI.
+
+## Tests
+
+Install the development dependencies and run the complete suite:
 
 ```bash
+python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-## macOS Apple Silicon build
+The v1.3.3 release source passes **124 automated tests** on both macOS and Windows release environments.
 
-The v1.3 source can be built as a self-contained unsigned arm64 application and DMG on an Apple Silicon Mac:
+## Build from source
+
+### macOS Apple Silicon
+
+Run on an arm64 Mac:
 
 ```bash
 source .venv/bin/activate
@@ -134,57 +164,57 @@ python -m pip install -r requirements-dev.txt
 ./build_macos.sh
 ```
 
-Outputs are written to `dist/Sticker Motion Toolkit.app` and `dist/Sticker-Motion-Toolkit-v1.3.3-macOS-arm64.dmg`. The packaged application opens directly into the GUI; users do not need Python or any Python packages.
+The script runs the tests, performs a clean PyInstaller build, and creates:
 
-The development build is not code-signed or notarized. macOS Gatekeeper may therefore block the first launch. A user who trusts the file can Control-click the app, choose **Open**, and confirm **Open**. Signing and notarization should be added before public distribution.
+- `dist/Sticker Motion Toolkit.app`
+- `dist/Sticker-Motion-Toolkit-v1.3.3-macOS-arm64.dmg`
 
-For release verification, the frozen executable supports an internal export diagnostic:
+The frozen executable also provides an internal release smoke test:
 
 ```bash
-"dist/Sticker Motion Toolkit.app/Contents/MacOS/Sticker Motion Toolkit" --self-test /tmp/sticker-motion-smoke
+"dist/Sticker Motion Toolkit.app/Contents/MacOS/Sticker Motion Toolkit" \
+  --self-test /tmp/sticker-motion-smoke
 ```
 
-## Windows 10/11 x64
+### Windows 10/11 x64
 
-Download `StickerMotionToolkit-v1.1.0-Windows-x64.zip` from the official [saunter-lin/StickerMotionToolkit v1.1.0 release](https://github.com/saunter-lin/StickerMotionToolkit/releases/tag/v1.1.0).
-
-1. Fully extract the ZIP before launching. Do not run the executable from inside the ZIP.
-2. Keep the complete extracted folder together; this is an onedir distribution and the `_internal` folder is required.
-3. Launch `Sticker Motion Toolkit.exe`.
-
-Python and Python packages are not required. This v1.1 Windows build is unsigned, so Windows SmartScreen may display a warning. Verify that the ZIP came from the official GitHub release before opening it.
-
-The native Windows build uses `StickerMotionToolkit-Windows.spec`. Build it on Windows x64 with:
+Build natively on Windows x64:
 
 ```powershell
 .venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .venv\Scripts\pyinstaller.exe --clean --noconfirm StickerMotionToolkit-Windows.spec
 ```
 
-Windows pinned-taskbar icon handling has been updated through a stable process AppUserModelID plus consistent application, window, PNG, and executable icons. Native Windows verification is still required before the v1.2 release.
+The Windows release is a PyInstaller onedir application. Fully extract the ZIP, keep the executable and `_internal` directory together, then launch `Sticker Motion Toolkit.exe`.
 
 ## Architecture
 
-`app/main.py` provides the source CLI, `app/gui_main.py` is the packaged GUI-first entry point, and `app/workers/pipeline.py` is the application orchestration boundary shared by both interfaces.
+- `app/main.py`: source CLI and GUI launcher.
+- `app/gui_main.py`: GUI-first entry point used by packaged builds and frozen self-tests.
+- `app/ui/desktop.py`: PySide6 desktop interface.
+- `app/workers/pipeline.py`: orchestration boundary shared by the CLI and GUI.
+- `sticker_motion/splitter.py`: frame-count validation, layout detection, and sprite-sheet slicing.
+- `sticker_motion/background.py`: deterministic color-to-alpha processing.
+- `sticker_motion/background_layer.py`: background ranges, cover/crop, and compositing.
+- `sticker_motion/animation.py`: platform-neutral frame normalization and timing model.
+- `sticker_motion/jobs.py`: animation group and queue models.
+- `sticker_motion/text_overlay.py`: shared preview/export text rendering.
+- `sticker_motion/fonts.py`: bundled, system, and local font resolution.
+- `sticker_motion/line_validation.py`: LINE timing calculation, APNG metadata read-back, and validation.
+- `sticker_motion/export.py`: platform-specific APNG/GIF encoding boundary.
 
-The `sticker_motion` package is deliberately modular:
-
-- `splitter.py`: validates frame counts, detects layouts, and slices sheets.
-- `background.py`: optional deterministic color-to-alpha cleanup.
-- `background_layer.py`: group-based frame-range selection, cover/crop, and background compositing.
-- `animation.py`: platform-neutral frame normalization and timing model.
-- `preview.py`: reusable static contact sheet; the GUI preview animates fully prepared frames using the group duration.
-- `export.py`: the only platform branch, encoding LINE APNG or WeChat GIF.
-
-Image objects are copied into this project-owned model. There is no import from or runtime dependency on Sticker Toolkit.
+Sticker Motion Toolkit does not import from or depend on the Sticker Toolkit project at runtime.
 
 ## Current limitations
 
-- The CLI accepts one evenly divided sprite sheet; the GUI accepts 2–15 individual PNG frames. Irregular atlases are not supported.
+- The GUI accepts individual PNG frames; the CLI accepts one evenly divided sprite sheet. Irregular atlases are not supported.
 - Background removal is color-threshold based, not semantic segmentation.
-- Text is static per job and composited consistently onto all frames; animated text effects are not implemented.
-- Vertical text uses simple character stacking; advanced East Asian vertical punctuation and layout are not implemented.
-- Video backgrounds, background animation editing, and platform-specific validation/compression remain future extension points.
-- GIF uses palette transparency and therefore cannot preserve partial alpha. APNG preserves full RGBA.
-- Output files are correctly encoded, but submission acceptance still depends on current platform upload rules; the toolkit does not yet enforce those rules.
-- Official V1 packaged builds target macOS Apple Silicon arm64 and Windows 10/11 x64. Other platforms have not been built or verified.
+- Background Layer currently uses still images; video or animated-background editing is not included.
+- Text is static per group and composited onto every frame; animated text effects are not included.
+- Vertical text uses simple character stacking rather than full East Asian vertical punctuation and layout rules.
+- Output validity does not guarantee acceptance if LINE or WeChat changes its submission rules.
+- Official packaged builds target macOS Apple Silicon arm64 and Windows 10/11 x64. Other platforms are not currently verified.
+
+## License notices
+
+See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for bundled-font licenses and official sources.
