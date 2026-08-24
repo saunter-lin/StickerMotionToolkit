@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 from PIL import Image
 
+from app.version import __version__
 from sticker_motion.animation import DEFAULT_FRAME_DURATION_MS, build_animation
 from sticker_motion.background import remove_background
 from sticker_motion.splitter import detect_layout, split_sheet
@@ -15,6 +16,10 @@ COLORS = [
     (0, 0, 128, 255), (128, 128, 0, 255), (128, 0, 128, 255), (0, 128, 128, 255),
     (192, 64, 0, 255), (64, 192, 0, 255), (0, 64, 192, 255),
 ]
+
+
+def test_development_version() -> None:
+    assert __version__ == "1.4.0-dev"
 
 
 def horizontal_sheet(count: int) -> Image.Image:

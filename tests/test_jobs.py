@@ -155,6 +155,56 @@ def test_explicit_legacy_duration_remains_unchanged() -> None:
     assert AnimationJob("legacy", duration_ms=200).duration_ms == 200
 
 
+def test_frame_duration_overrides_inherit_reset_and_follow_default(tmp_path: Path) -> None:
+    job = AnimationJob("timing", make_frames(tmp_path, 4), duration_ms=220)
+    assert job.frame_duration_overrides_ms == []
+    assert job.effective_frame_durations_ms() == (220, 220, 220, 220)
+    job.set_frame_duration_override(1, 180)
+    job.set_frame_duration_override(3, 500)
+    assert job.frame_duration_overrides_ms == [None, 180, None, 500]
+    assert job.effective_frame_durations_ms() == (220, 180, 220, 500)
+    job.duration_ms = 250
+    assert job.effective_frame_durations_ms() == (250, 180, 250, 500)
+    job.set_frame_duration_override(1, None)
+    assert job.frame_duration_overrides_ms == [None, None, None, 500]
+    assert job.effective_frame_durations_ms() == (250, 250, 250, 500)
+
+
+def test_new_reordered_removed_frames_keep_optional_duration_metadata(tmp_path: Path) -> None:
+    paths = make_frames(tmp_path, 4)
+    job = AnimationJob("order", paths[:2], duration_ms=250)
+    job.set_frame_duration_override(1, 180)
+    job.add_frame_paths(paths[2:])
+    assert job.frame_duration_overrides_ms == [None, 180, None, None]
+    assert job.effective_frame_durations_ms() == (250, 180, 250, 250)
+    job.move_frame(1, 1)
+    assert [path.name for path in job.frame_paths] == ["frame1.png", "frame3.png", "frame2.png", "frame4.png"]
+    assert job.frame_duration_overrides_ms == [None, None, 180, None]
+    job.remove_frame(1)
+    assert [path.name for path in job.frame_paths] == ["frame1.png", "frame2.png", "frame4.png"]
+    assert job.frame_duration_overrides_ms == [None, 180, None]
+
+
+def test_duplicate_group_deep_copies_frame_duration_overrides(tmp_path: Path) -> None:
+    original = AnimationJob("original", make_frames(tmp_path, 3), duration_ms=220)
+    original.set_frame_duration_override(1, 180)
+    duplicate = original.duplicate("duplicate")
+    assert duplicate.effective_frame_durations_ms() == (220, 180, 220)
+    assert duplicate.frame_duration_overrides_ms == [None, 180, None]
+    assert duplicate.frame_duration_overrides_ms is not original.frame_duration_overrides_ms
+    duplicate.set_frame_duration_override(1, 500)
+    assert original.effective_frame_durations_ms() == (220, 180, 220)
+    assert duplicate.effective_frame_durations_ms() == (220, 500, 220)
+
+
+@pytest.mark.parametrize("invalid", [0, -1, 10_001])
+def test_invalid_frame_duration_override_is_rejected_without_mutation(tmp_path: Path, invalid: int) -> None:
+    job = AnimationJob("invalid timing", make_frames(tmp_path, 2))
+    with pytest.raises(ValueError, match="frame duration"):
+        job.set_frame_duration_override(0, invalid)
+    assert job.effective_frame_durations_ms() == (220, 220)
+
+
 @pytest.mark.parametrize(
     ("frame_count", "playback_seconds", "expected_loops"),
     [(4, 1, 4), (6, 2, 2), (8, 3, 1), (4, 4, 1), (13, 2, 2)],
@@ -212,6 +262,35 @@ def test_line_export_timing_ignores_group_duration_and_wechat_preserves_it(tmp_p
         assert animation.info["duration"] == 220
 
 
+def test_wechat_export_reads_back_per_frame_effective_durations(tmp_path: Path) -> None:
+    job = AnimationJob(
+        "wechat timing", make_frames(tmp_path / "frames", 4), platform="wechat", duration_ms=220,
+        frame_duration_overrides_ms=[180, None, 500, None],
+    )
+    output = export_jobs([job], tmp_path / "out")[0]
+    with Image.open(output) as animation:
+        durations = []
+        for index in range(animation.n_frames):
+            animation.seek(index); durations.append(animation.info["duration"])
+    assert durations == [180, 220, 500, 220]
+
+
+def test_line_export_preserves_override_rhythm_and_exact_playback_time(tmp_path: Path) -> None:
+    effective = (180, 180, 500, 220)
+    job = AnimationJob(
+        "line timing", make_frames(tmp_path / "frames", 4), platform="line", duration_ms=220,
+        play_count=2, frame_duration_overrides_ms=list(effective),
+    )
+    output = export_jobs([job], tmp_path / "out")[0]
+    timing = read_apng_timing(output)
+    encoded_ms = tuple(int(delay * 1_000) for delay in timing.frame_delays)
+    assert encoded_ms == line_frame_durations_ms(4, 2, effective)
+    assert encoded_ms[2] > encoded_ms[0] == encoded_ms[1]
+    assert timing.one_cycle_seconds == 2
+    assert timing.play_count == 2
+    assert job.post_export_validation.level == "ok"
+
+
 @pytest.mark.parametrize(
     ("file_bytes", "level"),
     [(950_000, "ok"), (950_001, "warning"), (1_000_000, "warning"), (1_000_001, "error")],
@@ -257,6 +336,28 @@ def test_background_frame_text_layer_order(tmp_path: Path) -> None:
     assert frames[0].getpixel((0, 0))[3] == 255
     background_and_frame = apply_backgrounds(Image.open(frame_path), job.backgrounds, 1)
     assert ImageChops.difference(frames[0].convert("RGB"), background_and_frame.convert("RGB")).getbbox() is not None
+
+
+def test_background_text_composite_exports_with_per_frame_timing(tmp_path: Path) -> None:
+    paths = make_frames(tmp_path / "frames", 4, transparent=True)
+    for index, path in enumerate(paths):
+        with Image.open(path) as source:
+            frame = source.convert("RGBA")
+        frame.putpixel((index, index), (255, index * 40, 0, 255)); frame.save(path)
+    background = tmp_path / "background.png"; Image.new("RGB", (200, 100), "blue").save(background)
+    job = AnimationJob(
+        "layers and timing", paths, platform="wechat", duration_ms=220,
+        backgrounds=[BackgroundEntry(background, 2, 4)],
+        text_overlay=TextOverlaySettings(enabled=True, text="測試", font_size=20),
+        frame_duration_overrides_ms=[180, None, 500, None],
+    )
+    output = export_jobs([job], tmp_path / "out")[0]
+    with Image.open(output) as animation:
+        durations = []
+        for index in range(animation.n_frames):
+            animation.seek(index); durations.append(animation.info["duration"])
+            assert animation.convert("RGBA").getbbox() is not None
+    assert durations == [180, 220, 500, 220]
 
 
 def test_background_validation_count_ranges_and_missing(tmp_path: Path) -> None:

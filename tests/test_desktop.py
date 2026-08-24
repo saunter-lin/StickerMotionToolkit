@@ -309,9 +309,9 @@ def test_language_switch_preserves_queue_state(app, settings) -> None:
 def test_every_job_editor_control_has_a_translated_visible_label(app, settings) -> None:
     window = StickerMotionWindow(settings)
     expected = {
-        "zh-TW": ("介面語言", "影格間隔", "文字方向", "旋轉角度", "預覽"),
-        "zh-CN": ("界面语言", "帧间隔", "文字方向", "旋转角度", "预览"),
-        "en": ("Interface Language", "Frame Duration", "Text Direction", "Rotation Angle", "Preview"),
+        "zh-TW": ("介面語言", "預設影格時間", "文字方向", "旋轉角度", "預覽"),
+        "zh-CN": ("界面语言", "默认帧时间", "文字方向", "旋转角度", "预览"),
+        "en": ("Interface Language", "Default Duration", "Text Direction", "Rotation Angle", "Preview"),
     }
     for language, labels in expected.items():
         window.language_combo.setCurrentIndex(window.language_combo.findData(language))
@@ -435,4 +435,53 @@ def test_preview_uses_group_duration_and_all_composited_frames(app, settings, tm
     assert window.preview_timer.interval() == 333
     before = window._preview_index; window._advance_preview()
     assert window._preview_index == (before + 1) % 4
+    window.close()
+
+
+def test_compact_frame_duration_ui_updates_inheritance_preview_and_order(app, settings, tmp_path) -> None:
+    from PIL import Image
+
+    window = StickerMotionWindow(settings)
+    paths = []
+    for index in range(4):
+        path = tmp_path / f"p{index}.png"; Image.new("RGBA", (40, 40), (index * 40, 0, 0, 255)).save(path); paths.append(str(path))
+    window.add_frame_paths(paths)
+    assert all("220 ms" in window.frame_list.item(index).text() for index in range(4))
+    assert window.current_job().frame_duration_overrides_ms == [None, None, None, None]
+
+    window.frame_list.setCurrentRow(1)
+    window.frame_duration_spin.setValue(180)
+    assert window.frame_list.currentRow() == 1
+    window.frame_list.setCurrentRow(2)
+    window.frame_duration_spin.setValue(500)
+    assert window.frame_list.currentRow() == 2
+    assert window.current_job().effective_frame_durations_ms() == (220, 180, 500, 220)
+    assert window._preview_durations_ms == (220, 180, 500, 220)
+    assert window.preview_timer.interval() == 220
+    window._advance_preview(); assert window.preview_timer.interval() == 180
+    window._advance_preview(); assert window.preview_timer.interval() == 500
+
+    window.duration_spin.setValue(250)
+    assert window.current_job().effective_frame_durations_ms() == (250, 180, 500, 250)
+    window.frame_list.setCurrentRow(1); window.use_default_duration_button.click()
+    assert window.current_job().frame_duration_overrides_ms[1] is None
+    assert window.current_job().effective_frame_durations_ms() == (250, 250, 500, 250)
+
+    window.frame_list.setCurrentRow(2); window._move_up()
+    assert [Path(path).name for path in window.frame_paths()] == ["p0.png", "p2.png", "p1.png", "p3.png"]
+    assert window.current_job().effective_frame_durations_ms() == (250, 500, 250, 250)
+    assert "500 ms" in window.frame_list.item(1).text()
+    window.close()
+
+
+def test_frame_duration_controls_are_translated_live(app, settings) -> None:
+    window = StickerMotionWindow(settings)
+    expected = {
+        "zh-TW": ("所選影格時間", "使用預設值"),
+        "zh-CN": ("所选帧时间", "使用默认值"),
+        "en": ("Selected Frame Duration", "Use Default"),
+    }
+    for language, labels in expected.items():
+        window.language_combo.setCurrentIndex(window.language_combo.findData(language))
+        assert (window.frame_duration_label.text(), window.use_default_duration_button.text()) == labels
     window.close()

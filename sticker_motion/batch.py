@@ -52,11 +52,12 @@ def export_job(job: AnimationJob, output_folder: str | Path) -> Path:
     frames, font_available = prepare_job_frames(job)
     if not font_available:
         job.status_message = "font_fallback"
-    animation = build_animation(frames, job.duration_ms)
+    effective_durations = job.effective_frame_durations_ms()
+    animation = build_animation(frames, effective_durations)
     if job.platform == "line":
         animation = Animation(
             animation.frames,
-            line_frame_durations_ms(job.frame_count, job.play_count),
+            line_frame_durations_ms(job.frame_count, job.play_count, effective_durations),
             line_play_count(job.play_count),
         )
     destination = unique_output_path(Path(output_folder), job.resolved_filename())

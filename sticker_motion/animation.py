@@ -34,7 +34,7 @@ class Animation:
 
 def build_animation(
     frames: Iterable[Image.Image],
-    duration_ms: int = DEFAULT_FRAME_DURATION_MS,
+    duration_ms: int | tuple[int, ...] = DEFAULT_FRAME_DURATION_MS,
     *,
     transparent_background: bool = False,
     background_tolerance: int = 0,

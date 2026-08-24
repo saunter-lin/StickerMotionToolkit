@@ -4,6 +4,8 @@ Sticker Motion Toolkit is a standalone desktop tool for turning ordered PNG fram
 
 Current release: **v1.3.3**
 
+Current source development version: **v1.4.0-dev**, adding optional per-frame duration overrides while retaining each group’s default duration.
+
 ## Download
 
 Download the latest builds from the [v1.3.3 GitHub Release](https://github.com/saunter-lin/StickerMotionToolkit/releases/tag/v1.3.3).
@@ -45,12 +47,14 @@ LINE APNG or WeChat GIF
 - WeChat GIF is the default format for a newly created group.
 - New groups default to **220 ms per frame**.
 - Frame duration remains configurable per group.
+- In v1.4 development, each frame may optionally override the group default; resetting an override restores live inheritance from the group value.
 - GIF export uses palette transparency; partial alpha cannot be preserved.
 
 ### LINE APNG
 
 - LINE Playback Time can be set to **1, 2, 3, or 4 seconds**.
 - Frame delays are distributed precisely, including when the selected playback time is not evenly divisible by the frame count.
+- Per-frame overrides preserve relative rhythm while LINE timing remains normalized to the selected 1–4 second playback time.
 - Exported APNG timing and play-count metadata are read back and validated after encoding.
 - Finite play metadata keeps total LINE animation playback within four seconds.
 - APNG preserves full RGBA transparency.

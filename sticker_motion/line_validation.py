@@ -42,10 +42,33 @@ class ApngTiming:
         return self.one_cycle_seconds * self.play_count
 
 
-def line_frame_durations_ms(frame_count: int, playback_seconds: int) -> tuple[int, ...]:
-    """Distribute whole milliseconds so the encoded cycle has the exact target length."""
+def line_frame_durations_ms(
+    frame_count: int,
+    playback_seconds: int,
+    weights: tuple[int, ...] | None = None,
+) -> tuple[int, ...]:
+    """Distribute exact cycle timing, optionally preserving per-frame rhythm weights."""
     if frame_count <= 0 or playback_seconds not in LINE_PLAYBACK_SECONDS:
         raise ValueError("invalid LINE playback timing")
+    if weights is not None:
+        if len(weights) != frame_count or any(weight <= 0 for weight in weights):
+            raise ValueError("invalid LINE frame duration weights")
+        target_ms = playback_seconds * 1_000
+        if target_ms < frame_count:
+            raise ValueError("too many frames for LINE playback timing")
+        remaining_ms = target_ms - frame_count
+        total_weight = sum(weights)
+        shares = [Fraction(weight * remaining_ms, total_weight) for weight in weights]
+        durations = [1 + share.numerator // share.denominator for share in shares]
+        remainder = target_ms - sum(durations)
+        order = sorted(
+            range(frame_count),
+            key=lambda index: (shares[index] - int(shares[index]), -index),
+            reverse=True,
+        )
+        for index in order[:remainder]:
+            durations[index] += 1
+        return tuple(durations)
     base, remainder = divmod(playback_seconds * 1_000, frame_count)
     if base <= 0:
         raise ValueError("too many frames for LINE playback timing")

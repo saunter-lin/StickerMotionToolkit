@@ -39,6 +39,18 @@ def test_wechat_export_is_animated_gif(tmp_path) -> None:
         assert exported.info["duration"] == 200
 
 
+def test_generic_gif_and_apng_preserve_per_frame_durations(tmp_path) -> None:
+    frames = tuple(Image.new("RGBA", (16, 16), (index * 40, 20, 200, 255)) for index in range(4))
+    durations = (180, 220, 500, 300)
+    for platform, name in (("wechat", "timing.gif"), ("line", "timing.png")):
+        path = export_animation(Animation(frames, durations), platform, tmp_path / name)
+        with Image.open(path) as exported:
+            actual = []
+            for index in range(exported.n_frames):
+                exported.seek(index); actual.append(int(exported.info["duration"]))
+        assert actual == list(durations)
+
+
 def test_export_preserves_transparency(tmp_path) -> None:
     frames = []
     for index in range(4):
