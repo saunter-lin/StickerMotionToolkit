@@ -18,8 +18,8 @@ COLORS = [
 ]
 
 
-def test_development_version() -> None:
-    assert __version__ == "1.4.0-dev"
+def test_release_version() -> None:
+    assert __version__ == "1.4.0"
 
 
 def horizontal_sheet(count: int) -> Image.Image:

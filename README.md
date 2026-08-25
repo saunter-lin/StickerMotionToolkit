@@ -4,7 +4,7 @@ Sticker Motion Toolkit is a standalone desktop tool for turning ordered PNG fram
 
 Current release: **v1.3.3**
 
-Current source development version: **v1.4.0-dev**, adding optional per-frame duration overrides while retaining each group’s default duration.
+Current source version: **v1.4.0**, adding optional per-frame duration overrides while retaining each group’s default duration.
 
 ## Download
 
