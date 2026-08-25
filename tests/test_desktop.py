@@ -353,11 +353,15 @@ def test_language_switch_preserves_new_text_controls(app, settings) -> None:
 
 
 def test_bundled_fonts_are_fixed_first_and_local_action_is_last(app, settings) -> None:
-    from sticker_motion.fonts import LOCAL_FONT_ACTION, SYSTEM_SEPARATOR
+    from sticker_motion.fonts import (
+        BUNDLED_FONTS, LOCAL_FONT_ACTION, SYSTEM_SEPARATOR, bundled_font_family_matches,
+    )
 
     window = StickerMotionWindow(settings)
     assert [window.font_combo.itemText(index) for index in range(3)] == ["芫荽", "粉圓體", "辰宇落雁體"]
-    assert [window.font_combo.itemData(index) for index in range(3)] == ["Iansui", "jf-openhuninn-2.1", "ChenYuluoyan 2.0"]
+    families = [str(window.font_combo.itemData(index)) for index in range(3)]
+    assert families[:2] == ["Iansui", "jf-openhuninn-2.1"]
+    assert bundled_font_family_matches(BUNDLED_FONTS[2], families[2])
     separator_index = next(index for index in range(window.font_combo.count()) if window.font_combo.itemText(index) == SYSTEM_SEPARATOR)
     assert not window.font_combo.model().item(separator_index).isEnabled()
     assert window.font_combo.itemData(window.font_combo.count() - 1) == LOCAL_FONT_ACTION

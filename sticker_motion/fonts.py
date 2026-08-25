@@ -19,12 +19,18 @@ class BundledFont:
     label: str
     family: str
     relative_path: str
+    family_aliases: tuple[str, ...] = ()
 
 
 BUNDLED_FONTS = (
     BundledFont("芫荽", "Iansui", "Iansui/Iansui-Regular.ttf"),
     BundledFont("粉圓體", "jf-openhuninn-2.1", "Huninn/jf-openhuninn-2.1.ttf"),
-    BundledFont("辰宇落雁體", "ChenYuluoyan 2.0", "ChenYuluoyan/ChenYuluoyan-2.0-Thin.ttf"),
+    BundledFont(
+        "辰宇落雁體",
+        "ChenYuluoyan 2.0",
+        "ChenYuluoyan/ChenYuluoyan-2.0-Thin.ttf",
+        ("ChenYuluoyan 2.0 Thin",),
+    ),
 )
 
 _registered = False
@@ -52,6 +58,13 @@ def bundled_font_paths() -> tuple[Path, ...]:
     return tuple(resource_root() / font.relative_path for font in BUNDLED_FONTS)
 
 
+def bundled_font_family_matches(descriptor: BundledFont, family: str) -> bool:
+    """Accept only the canonical family or an explicit metadata-backed alias."""
+    candidate = " ".join(family.split()).casefold()
+    accepted = (descriptor.family, *descriptor.family_aliases)
+    return candidate in {" ".join(name.split()).casefold() for name in accepted}
+
+
 def register_bundled_fonts() -> tuple[str, ...]:
     global _registered, _registered_bundled_families
     if _registered:
@@ -63,6 +76,8 @@ def register_bundled_fonts() -> tuple[str, ...]:
         families = QFontDatabase.applicationFontFamilies(font_id) if font_id >= 0 else []
         if not families:
             raise RuntimeError(f"Unable to load bundled font: {path}")
+        if not bundled_font_family_matches(descriptor, families[0]):
+            raise RuntimeError(f"Unexpected bundled font family: {families[0]}")
         registered.append(families[0])
     _registered_bundled_families = tuple(registered)
     _registered = True
@@ -85,11 +100,10 @@ def register_local_font(path: str | Path) -> str | None:
 
 def available_font_families() -> list[str]:
     bundled = list(register_bundled_fonts())
-    bundled_keys = {family.casefold() for family in bundled}
     unique_system: dict[str, str] = {}
     for family in QFontDatabase.families():
         key = family.casefold()
-        if key not in bundled_keys:
+        if not any(bundled_font_family_matches(descriptor, family) for descriptor in BUNDLED_FONTS):
             unique_system.setdefault(key, family)
     system = sorted(unique_system.values(), key=str.casefold)
     return bundled + system
@@ -99,7 +113,7 @@ def resolved_font_family_name(family: str) -> str | None:
     bundled = register_bundled_fonts()
     requested = family.casefold() if family else ""
     for descriptor, registered in zip(BUNDLED_FONTS, bundled, strict=True):
-        if requested in (descriptor.family.casefold(), registered.casefold()):
+        if bundled_font_family_matches(descriptor, family) or requested == registered.casefold():
             return registered
     for available in (*_local_font_paths, *QFontDatabase.families()):
         if requested == available.casefold():
