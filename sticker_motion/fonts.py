@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import sys
+import struct
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 from PySide6.QtGui import QFontDatabase, QGuiApplication
@@ -19,18 +21,12 @@ class BundledFont:
     label: str
     family: str
     relative_path: str
-    family_aliases: tuple[str, ...] = ()
 
 
 BUNDLED_FONTS = (
     BundledFont("芫荽", "Iansui", "Iansui/Iansui-Regular.ttf"),
     BundledFont("粉圓體", "jf-openhuninn-2.1", "Huninn/jf-openhuninn-2.1.ttf"),
-    BundledFont(
-        "辰宇落雁體",
-        "ChenYuluoyan 2.0",
-        "ChenYuluoyan/ChenYuluoyan-2.0-Thin.ttf",
-        ("ChenYuluoyan 2.0 Thin",),
-    ),
+    BundledFont("辰宇落雁體", "ChenYuluoyan 2.0", "ChenYuluoyan/ChenYuluoyan-2.0-Thin.ttf"),
 )
 
 _registered = False
@@ -58,11 +54,67 @@ def bundled_font_paths() -> tuple[Path, ...]:
     return tuple(resource_root() / font.relative_path for font in BUNDLED_FONTS)
 
 
+def _normalized_family_name(family: str) -> str:
+    return " ".join(family.split()).casefold()
+
+
+@lru_cache(maxsize=None)
+def font_family_aliases(path: Path) -> frozenset[str]:
+    """Derive exact Qt family candidates from a bundled SFNT name table."""
+    data = path.read_bytes()
+    table_count = struct.unpack_from(">H", data, 4)[0]
+    name_offset = None
+    for index in range(table_count):
+        tag, _, offset, _ = struct.unpack_from(">4sIII", data, 12 + index * 16)
+        if tag == b"name":
+            name_offset = offset
+            break
+    if name_offset is None:
+        raise RuntimeError(f"Bundled font has no name table: {path}")
+
+    _, record_count, strings_offset = struct.unpack_from(">HHH", data, name_offset)
+    records: dict[tuple[int, int, int], dict[int, set[str]]] = {}
+    for index in range(record_count):
+        record_offset = name_offset + 6 + index * 12
+        platform, encoding, language, name_id, length, offset = struct.unpack_from(
+            ">HHHHHH", data, record_offset
+        )
+        if name_id not in {1, 2, 16, 17}:
+            continue
+        raw_offset = name_offset + strings_offset + offset
+        raw = data[raw_offset:raw_offset + length]
+        try:
+            if platform in {0, 3}:
+                value = raw.decode("utf-16-be")
+            elif platform == 1:
+                value = raw.decode("mac_roman")
+            else:
+                continue
+        except UnicodeDecodeError:
+            continue
+        value = " ".join(value.split())
+        if value:
+            records.setdefault((platform, encoding, language), {}).setdefault(name_id, set()).add(value)
+
+    aliases: set[str] = set()
+    for names in records.values():
+        aliases.update(names.get(1, ()))
+        aliases.update(names.get(16, ()))
+        for family in names.get(16, ()):
+            for subfamily in names.get(17, ()):
+                aliases.add(f"{family} {subfamily}")
+    if not aliases:
+        raise RuntimeError(f"Bundled font has no usable family names: {path}")
+    return frozenset(_normalized_family_name(alias) for alias in aliases)
+
+
+def bundled_font_family_aliases(descriptor: BundledFont) -> frozenset[str]:
+    return font_family_aliases(resource_root() / descriptor.relative_path)
+
+
 def bundled_font_family_matches(descriptor: BundledFont, family: str) -> bool:
-    """Accept only the canonical family or an explicit metadata-backed alias."""
-    candidate = " ".join(family.split()).casefold()
-    accepted = (descriptor.family, *descriptor.family_aliases)
-    return candidate in {" ".join(name.split()).casefold() for name in accepted}
+    """Match exactly against Unicode aliases derived from this font's metadata."""
+    return _normalized_family_name(family) in bundled_font_family_aliases(descriptor)
 
 
 def register_bundled_fonts() -> tuple[str, ...]:

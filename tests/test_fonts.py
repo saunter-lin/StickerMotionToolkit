@@ -7,8 +7,8 @@ from PySide6.QtGui import QFontDatabase
 
 from sticker_motion.fonts import (
     BUNDLED_FONTS, DEFAULT_FONT, available_font_families, bundled_font_paths,
-    bundled_font_family_matches, register_bundled_fonts, register_local_font,
-    resolved_font_families, resolved_font_family_name,
+    bundled_font_family_aliases, bundled_font_family_matches, register_bundled_fonts,
+    register_local_font, resolved_font_families, resolved_font_family_name,
 )
 from sticker_motion.jobs import TextOverlaySettings
 from sticker_motion.text_overlay import apply_text_overlay, render_text_layer
@@ -27,18 +27,31 @@ def test_bundled_font_resources_exist_and_register() -> None:
     assert available_font_families()[:3] == list(families)
 
 
-def test_chenyuluoyan_family_matching_accepts_only_canonical_and_known_suffix() -> None:
+def test_chenyuluoyan_family_matching_uses_exact_metadata_derived_aliases() -> None:
     descriptor = BUNDLED_FONTS[2]
     assert bundled_font_family_matches(descriptor, "ChenYuluoyan 2.0")
     assert bundled_font_family_matches(descriptor, "ChenYuluoyan 2.0 Thin")
+    assert bundled_font_family_matches(descriptor, "ChenYuluoyan 2.0 細體")
+    assert bundled_font_family_matches(descriptor, "  chenyuluoyan   2.0   thin  ")
     assert not bundled_font_family_matches(descriptor, "ChenYuluoyan 2.0 Bold")
+    assert not bundled_font_family_matches(descriptor, "ChenYuluoyan 2.0 Regular")
+    assert not bundled_font_family_matches(descriptor, "ChenYuluoyan 2.0 SomethingElse")
     assert not bundled_font_family_matches(descriptor, "Other ChenYuluoyan 2.0 Thin")
+
+
+def test_every_bundled_font_uses_its_own_localized_name_table_aliases() -> None:
+    assert bundled_font_family_matches(BUNDLED_FONTS[0], "芫荽")
+    assert bundled_font_family_matches(BUNDLED_FONTS[0], "Iansui Regular")
+    assert bundled_font_family_matches(BUNDLED_FONTS[1], "jf open 粉圓 2.1")
+    assert bundled_font_family_matches(BUNDLED_FONTS[1], "jf-openhuninn-2.1 Regular")
+    assert all(bundled_font_family_aliases(font) for font in BUNDLED_FONTS)
 
 
 def test_chenyuluoyan_canonical_and_platform_alias_resolve_to_registered_family() -> None:
     registered = register_bundled_fonts()[2]
     assert resolved_font_family_name("ChenYuluoyan 2.0") == registered
     assert resolved_font_family_name("ChenYuluoyan 2.0 Thin") == registered
+    assert resolved_font_family_name("ChenYuluoyan 2.0 細體") == registered
 
 
 def test_empty_system_font_enumeration_keeps_bundled_fonts(monkeypatch) -> None:
