@@ -24,11 +24,11 @@ PYINSTALLER_CONFIG_DIR="$project_dir/build/pyinstaller-cache" \
 
 app_path="$project_dir/dist/Sticker Motion Toolkit.app"
 dmg_root="$project_dir/build/dmg-root"
-dmg_path="$project_dir/dist/Sticker-Motion-Toolkit-v1.3.3-macOS-arm64.dmg"
+dmg_path="$project_dir/dist/StickerMotionToolkit-v1.4.0-macOS-arm64.dmg"
 mkdir -p "$dmg_root"
 ditto "$app_path" "$dmg_root/Sticker Motion Toolkit.app"
 ln -s /Applications "$dmg_root/Applications"
-hdiutil create -volname "Sticker Motion Toolkit v1.3.3" -srcfolder "$dmg_root" -ov -format UDZO "$dmg_path"
+hdiutil create -volname "Sticker Motion Toolkit v1.4.0" -srcfolder "$dmg_root" -ov -format UDZO "$dmg_path"
 
 print "Built: $app_path"
 print "Built: $dmg_path"

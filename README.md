@@ -2,18 +2,18 @@
 
 Sticker Motion Toolkit is a standalone desktop tool for turning ordered PNG frames into animated stickers. It exports LINE animations as APNG and WeChat animations as GIF, and runs independently from [Sticker Toolkit](https://github.com/saunter-lin/StickerToolkit).
 
-Current release: **v1.3.3**
+Current release: **v1.4.0**
 
 Current source version: **v1.4.0**, adding optional per-frame duration overrides while retaining each group’s default duration.
 
 ## Download
 
-Download the latest builds from the [v1.3.3 GitHub Release](https://github.com/saunter-lin/StickerMotionToolkit/releases/tag/v1.3.3).
+Download the latest builds from the [v1.4.0 GitHub Release](https://github.com/saunter-lin/StickerMotionToolkit/releases/tag/v1.4.0).
 
 | Platform | Release file | Requirements |
 | --- | --- | --- |
-| macOS | `StickerMotionToolkit-v1.3.3-macOS-arm64.dmg` | Apple Silicon (arm64) |
-| Windows | `StickerMotionToolkit-v1.3.3-Windows-x64.zip` | Windows 10/11 x64 |
+| macOS | `StickerMotionToolkit-v1.4.0-macOS-arm64.dmg` | Apple Silicon (arm64) |
+| Windows | `StickerMotionToolkit-v1.4.0-Windows-x64.zip` | Windows 10/11 x64 |
 
 The packaged applications are self-contained. End users do not need Python, PySide6, Pillow, or PyInstaller.
 
@@ -47,7 +47,7 @@ LINE APNG or WeChat GIF
 - WeChat GIF is the default format for a newly created group.
 - New groups default to **220 ms per frame**.
 - Frame duration remains configurable per group.
-- In v1.4 development, each frame may optionally override the group default; resetting an override restores live inheritance from the group value.
+- Each frame may optionally override the group default; resetting an override restores live inheritance from the group value.
 - GIF export uses palette transparency; partial alpha cannot be preserved.
 
 ### LINE APNG
@@ -154,7 +154,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-The v1.3.3 release source passes **124 automated tests** on both macOS and Windows release environments.
+The v1.4.0 release source passes **140 automated tests** on the macOS release environment.
 
 ## Build from source
 
@@ -171,7 +171,7 @@ python -m pip install -r requirements-dev.txt
 The script runs the tests, performs a clean PyInstaller build, and creates:
 
 - `dist/Sticker Motion Toolkit.app`
-- `dist/Sticker-Motion-Toolkit-v1.3.3-macOS-arm64.dmg`
+- `dist/StickerMotionToolkit-v1.4.0-macOS-arm64.dmg`
 
 The frozen executable also provides an internal release smoke test:
 
